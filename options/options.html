@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ChatSprig Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <header class="brand"><img src="../icons/icon128.png" width="56" height="56" alt=""><div><h1>ChatSprig Settings</h1><p>Ask here. Stay here.</p></div></header>
+
+    <section>
+      <h2>Keyboard shortcuts</h2>
+      <p class="hint">Press <kbd>Alt+K</kbd> to toggle the overlay or <kbd>Alt+N</kbd> to start a new temporary chat. On macOS, use the Option key instead of Alt.</p>
+      <button type="button" id="open-shortcuts">Change shortcuts</button>
+    </section>
+
+    <section>
+      <h2>Chat overlay</h2>
+      <label class="row">
+        <span>When Alt+K is pressed while the overlay is open</span>
+        <select data-key="altKWhenOpen">
+          <option value="hide">Close the overlay</option>
+          <option value="focus">Focus the prompt input</option>
+        </select>
+      </label>
+      <label class="row">
+        <span>Default width (px, limited by browser window size)</span>
+        <input type="number" min="380" max="4000" step="10" data-key="windowWidth">
+      </label>
+      <label class="row">
+        <span>Default height (px, limited by browser window size)</span>
+        <input type="number" min="420" max="4000" step="10" data-key="windowHeight">
+      </label>
+      <label class="row">
+        <span>Hide the ChatGPT sidebar</span>
+        <input type="checkbox" data-key="hideChatgptSidebar">
+      </label>
+      <label class="row">
+        <span>Focus the prompt input when opening</span>
+        <input type="checkbox" data-key="focusPromptOnOpen">
+      </label>
+      <label class="row">
+        <span>ChatGPT URL</span>
+        <input type="url" data-key="targetUrl" spellcheck="false">
+      </label>
+    </section>
+
+    <section>
+      <h2>Sign-in settings</h2>
+      <p class="hint">
+        ChatGPT sign-in cookies are not sent to frames embedded on other websites by default. This option changes chatgpt.com cookies to
+        <code>SameSite=None</code>, which helps keep the overlay signed in on other websites. This weakens protection against cross-site request forgery (CSRF). Disabling it may leave the overlay signed out on other websites. Browser cookie restrictions may still prevent sign-in.
+      </p>
+      <label class="row">
+        <span>Keep ChatGPT signed in across websites (rewrite cookies)</span>
+        <input type="checkbox" data-key="rewriteCookies">
+      </label>
+      <div class="row">
+        <span>Reapply cookie settings now</span>
+        <button type="button" id="rewrite-now">Apply</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Floating launcher</h2>
+      <label class="row">
+        <span>Show the floating launcher on web pages</span>
+        <input type="checkbox" data-key="showLauncher">
+      </label>
+      <label class="row">
+        <span>Launcher position</span>
+        <select data-key="launcherPosition">
+          <option value="bottom-right">Bottom right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="top-right">Top right</option>
+          <option value="top-left">Top left</option>
+        </select>
+      </label>
+      <label class="row">
+        <span>Hide the launcher on ChatGPT websites</span>
+        <input type="checkbox" data-key="launcherHideOnChatgpt">
+      </label>
+    </section>
+
+    <section>
+      <h2>Copy math</h2>
+      <label class="row">
+        <span>Copy selected math on chatgpt.com as LaTeX source</span>
+        <input type="checkbox" data-key="enableLatexCopy">
+      </label>
+    </section>
+
+    <p id="status" class="status" aria-live="polite"></p>
+  </main>
+  <script src="../shared/defaults.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

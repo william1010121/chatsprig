@@ -1,0 +1,107 @@
+{
+  "manifest_version": 3,
+  "name": "ChatSprig — Temporary Chat for ChatGPT",
+  "version": "2.1.0",
+  "description": "Ask here. Stay here. Open temporary ChatGPT chats in your current page, with keyboard shortcuts and LaTeX copying.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png",
+    "32": "icons/icon32.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "cookies",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "ChatSprig Settings"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "allow_framing",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "commands": {
+    "toggle-chat": {
+      "suggested_key": {
+        "default": "Alt+K",
+        "mac": "Alt+K",
+        "windows": "Alt+K"
+      },
+      "description": "Open / close the ChatGPT temporary chat overlay"
+    },
+    "refresh-chat": {
+      "suggested_key": {
+        "default": "Alt+N",
+        "mac": "Alt+N",
+        "windows": "Alt+N"
+      },
+      "description": "Reload the overlay with a fresh temporary chat"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/shortcuts.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "shared/defaults.js",
+        "content/overlay.js",
+        "content/launcher.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "shared/defaults.js",
+        "content/frame-helper.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "shared/defaults.js",
+        "content/copy-latex.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "short_name": "ChatSprig"
+}
