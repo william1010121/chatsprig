@@ -33,7 +33,7 @@ ChatSprig opens ChatGPT itself. It does not automatically read an article or sen
 
 ## Get started
 
-**Chrome Web Store:** the 2.1.0 listing and upload are prepared. Submission is awaiting publisher contact-email verification. A store link will be added after approval.
+**Chrome Web Store:** version 2.1.0 was submitted on September 15, 2026 and is **pending review**. It will publish automatically after approval. A store link will be added when it is available.
 
 ### Install from this repository
 

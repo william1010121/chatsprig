@@ -39,8 +39,9 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: Draft; package, listing, assets, privacy disclosures, and test instructions saved.
-- Submission blocker: publisher contact email must be supplied and verified in account Settings.
+- Status: Pending review; submitted September 15, 2026. Automatic publishing after approval is enabled.
+- Publisher contact email verified; submission completed.
+- Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.
 - Data categories disclosed: Authentication information, Personal communications, Website content.
 - Remote code: Yes, with the external ChatGPT iframe explanation above.
