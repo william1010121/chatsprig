@@ -1,0 +1,25 @@
+Ask here. Stay here.
+
+ChatSprig opens temporary ChatGPT conversations inside your current web page. Ask a quick question while reading, studying, or working, then return to the page without opening a separate ChatGPT window.
+
+WHAT YOU CAN DO
+• Open a centered, resizable ChatGPT overlay on supported websites.
+• Toggle the chat with Alt+K on Windows or Option+K on macOS.
+• Start a fresh temporary chat with Alt+N / Option+N.
+• Use a floating launcher and choose its corner.
+• Hide the embedded ChatGPT sidebar and automatically focus the prompt.
+• Copy supported mathematical expressions on ChatGPT pages as LaTeX source.
+• Click the extension toolbar icon to open Settings.
+
+YOU CHOOSE THE CONTEXT
+ChatSprig does not automatically read or summarize the surrounding webpage. Type or paste the context you want to discuss into ChatGPT.
+
+ACCOUNT AND COMPATIBILITY
+ChatSprig embeds the ChatGPT website. Sign in to ChatGPT in a normal tab first if needed. OpenAI account, plan, usage, and temporary-chat retention rules apply. Chrome internal pages, the Chrome Web Store, some PDF viewers, and other restricted pages cannot display the overlay. Popups and top-level navigation from the embedded frame are blocked. Browser restrictions or changes to ChatGPT may affect loading and sign-in.
+
+PRIVACY AND COOKIE COMPATIBILITY
+There is no developer-operated analytics or conversation backend. Settings use Chrome Sync; messages are handled directly by the ChatGPT website.
+
+Cross-site sign-in compatibility is enabled by default. It rewrites eligible ChatGPT cookies, including session cookies, to SameSite=None; Secure in your browser. This relaxes SameSite-based protection and can affect other ChatGPT tabs. Disabling this option stops future rewrites but does not restore cookies already changed. The extension also removes frame-blocking response headers from ChatGPT subframe responses to allow embedding. Third-party-cookie blocking can still prevent sign-in.
+
+Independent project. Not affiliated with or endorsed by OpenAI. ChatGPT is an OpenAI product.

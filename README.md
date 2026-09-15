@@ -29,9 +29,11 @@ Open ChatSprig, ask ChatGPT, and return to what you were doing — all in the sa
 
 ChatSprig opens ChatGPT itself. It does not automatically read an article or send the surrounding page to ChatGPT. Type or paste the context you want to discuss.
 
+![ChatSprig running inside a Wikipedia page](store/screenshot-overlay.png)
+
 ## Get started
 
-**Chrome Web Store:** submission preparation is in progress. A store link will be added after approval.
+**Chrome Web Store:** the 2.1.0 listing and upload are prepared. Submission is awaiting publisher contact-email verification. A store link will be added after approval.
 
 ### Install from this repository
 
