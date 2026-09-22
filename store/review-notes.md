@@ -41,7 +41,7 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: Draft 2.2.0 prepared for review on September 22, 2026. Automatic publishing after approval should be enabled on submission.
+- Status: Version 2.2.0 pending review; submitted September 22, 2026. Automatic publishing after approval is enabled.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.
