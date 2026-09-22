@@ -1,25 +1,30 @@
 Ask here. Stay here.
 
-ChatSprig opens temporary ChatGPT conversations inside your current web page. Ask a quick question while reading, studying, or working, then return to the page without opening a separate ChatGPT window.
+ChatSprig opens temporary ChatGPT and Gemini conversations inside your current web page. Ask a quick question while reading, studying, or working, then return without opening another window.
 
 WHAT YOU CAN DO
-• Open a centered, resizable ChatGPT overlay on supported websites.
-• Toggle the chat with Alt+K on Windows or Option+K on macOS.
-• Start a fresh temporary chat with Alt+N / Option+N.
-• Use a floating launcher and choose its corner.
-• Hide the embedded ChatGPT sidebar and automatically focus the prompt.
+• Open a centered, resizable ChatGPT or Gemini overlay on supported websites.
+• Open or switch to ChatGPT with Alt+K / Option+K and Gemini with Alt+G / Option+G.
+• Start a fresh temporary chat in the current service with Alt+N / Option+N.
+• Select message text on ChatGPT or Gemini and send it to that service’s sidebar.
+• Choose whether Ask in sidebar sends immediately or leaves a draft for editing.
+• Use Compact view on ChatGPT for more comfortable long-form reading.
+• Optionally prepend saved instructions in verified Chat mode and repeat them at a chosen interval.
+• Choose a preferred Gemini model for new temporary chats.
 • Copy supported mathematical expressions on ChatGPT pages as LaTeX source.
-• Click the extension toolbar icon to open Settings.
+• Use a floating launcher and customize overlay, focus, sidebar, and launcher behavior in Settings.
 
 YOU CHOOSE THE CONTEXT
-ChatSprig does not automatically read or summarize the surrounding webpage. Type or paste the context you want to discuss into ChatGPT.
+ChatSprig does not automatically read or summarize the surrounding webpage. It sends only text you type, paste, or explicitly select with Ask in sidebar. Selecting text alone never sends it.
 
 ACCOUNT AND COMPATIBILITY
-ChatSprig embeds the ChatGPT website. Sign in to ChatGPT in a normal tab first if needed. OpenAI account, plan, usage, and temporary-chat retention rules apply. Chrome internal pages, the Chrome Web Store, some PDF viewers, and other restricted pages cannot display the overlay. Popups and top-level navigation from the embedded frame are blocked. Browser restrictions or changes to ChatGPT may affect loading and sign-in.
+ChatSprig embeds the official ChatGPT and Gemini websites. Sign in to each service in a normal tab first if needed. The providers’ account, plan, usage, and temporary-chat retention rules apply. Chrome internal pages, the Chrome Web Store, some PDF viewers, and other restricted pages cannot display the overlay. Browser restrictions or service changes may affect loading and sign-in.
 
 PRIVACY AND COOKIE COMPATIBILITY
-There is no developer-operated analytics or conversation backend. Settings use Chrome Sync; messages are handled directly by the ChatGPT website.
+There is no developer-operated analytics or conversation backend. Settings use Chrome Sync; messages are handled directly by OpenAI or Google.
 
-Cross-site sign-in compatibility is enabled by default. It rewrites eligible ChatGPT cookies, including session cookies, to SameSite=None; Secure in your browser. This relaxes SameSite-based protection and can affect other ChatGPT tabs. Disabling this option stops future rewrites but does not restore cookies already changed. The extension also removes frame-blocking response headers from ChatGPT subframe responses to allow embedding. Third-party-cookie blocking can still prevent sign-in.
+Cross-site sign-in compatibility rewrites eligible ChatGPT cookies, including session cookies, to SameSite=None; Secure when enabled. This relaxes SameSite-based protection and can affect other ChatGPT tabs. Disabling it stops future rewrites but does not restore cookies already changed. Google cookies are not rewritten. ChatSprig removes frame-blocking response headers from service subframes to allow embedding. Browser cookie restrictions can still prevent sign-in.
 
-Independent project. Not affiliated with or endorsed by OpenAI. ChatGPT is an OpenAI product.
+Source and support: https://github.com/william1010121/chatsprig
+
+Independent project. Not affiliated with or endorsed by OpenAI or Google. ChatGPT is an OpenAI product.
