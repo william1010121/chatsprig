@@ -1,6 +1,7 @@
 // ES module twin of defaults.js for the background service worker.
 export const DEFAULT_SETTINGS = {
   targetUrl: 'https://chatgpt.com/?temporary-chat=true',
+  geminiModel: 'current', // 'current' | 'flash-lite' | 'flash' | 'pro'
   altKWhenOpen: 'hide',
   windowWidth: 1100,
   windowHeight: 760,
@@ -10,6 +11,11 @@ export const DEFAULT_SETTINGS = {
   launcherPosition: 'bottom-right',
   launcherHideOnChatgpt: false,
   enableLatexCopy: true,
+  compactView: false,
+  autoSendAskInSidebar: true,
+  appendSystemPrompt: false,
+  systemPrompt: '',
+  systemPromptInterval: 0,
   rewriteCookies: true
 };
 

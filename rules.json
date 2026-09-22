@@ -5,14 +5,25 @@
     "action": {
       "type": "modifyHeaders",
       "responseHeaders": [
-        { "header": "x-frame-options", "operation": "remove" },
-        { "header": "content-security-policy", "operation": "remove" },
-        { "header": "content-security-policy-report-only", "operation": "remove" }
+        {
+          "header": "x-frame-options",
+          "operation": "remove"
+        },
+        {
+          "header": "content-security-policy",
+          "operation": "remove"
+        },
+        {
+          "header": "content-security-policy-report-only",
+          "operation": "remove"
+        }
       ]
     },
     "condition": {
       "urlFilter": "||chatgpt.com/",
-      "resourceTypes": ["sub_frame"]
+      "resourceTypes": [
+        "sub_frame"
+      ]
     }
   },
   {
@@ -21,14 +32,44 @@
     "action": {
       "type": "modifyHeaders",
       "responseHeaders": [
-        { "header": "x-frame-options", "operation": "remove" },
-        { "header": "content-security-policy", "operation": "remove" },
-        { "header": "content-security-policy-report-only", "operation": "remove" }
+        {
+          "header": "x-frame-options",
+          "operation": "remove"
+        },
+        {
+          "header": "content-security-policy",
+          "operation": "remove"
+        },
+        {
+          "header": "content-security-policy-report-only",
+          "operation": "remove"
+        }
       ]
     },
     "condition": {
       "urlFilter": "||chat.openai.com/",
-      "resourceTypes": ["sub_frame"]
+      "resourceTypes": [
+        "sub_frame"
+      ]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "responseHeaders": [
+        {
+          "header": "x-frame-options",
+          "operation": "remove"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||gemini.google.com/",
+      "resourceTypes": [
+        "sub_frame"
+      ]
     }
   }
 ]

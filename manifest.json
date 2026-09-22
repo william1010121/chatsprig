@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ChatSprig — Temporary Chat for ChatGPT",
-  "version": "2.1.0",
-  "description": "Ask here. Stay here. Open temporary ChatGPT chats in your current page, with keyboard shortcuts and LaTeX copying.",
+  "name": "ChatSprig \u2014 Temporary Chat for ChatGPT & Gemini",
+  "version": "2.2.0",
+  "description": "Open temporary ChatGPT and Gemini chats in your current page, with keyboard shortcuts and selection-to-sidebar.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -11,13 +11,13 @@
   },
   "permissions": [
     "storage",
-    "tabs",
     "cookies",
-    "declarativeNetRequest"
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
-    "https://chat.openai.com/*"
+    "https://chat.openai.com/*",
+    "https://gemini.google.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -55,6 +55,14 @@
         "windows": "Alt+N"
       },
       "description": "Reload the overlay with a fresh temporary chat"
+    },
+    "toggle-gemini": {
+      "suggested_key": {
+        "default": "Alt+G",
+        "mac": "Alt+G",
+        "windows": "Alt+G"
+      },
+      "description": "Open / close the Gemini temporary chat overlay"
     }
   },
   "content_scripts": [
@@ -86,7 +94,11 @@
       ],
       "js": [
         "shared/defaults.js",
-        "content/frame-helper.js"
+        "content/chat-context.js",
+        "content/system-prompt.js",
+        "content/frame-helper.js",
+        "content/compact-view.js",
+        "content/ask-sidebar.js"
       ],
       "all_frames": true,
       "run_at": "document_idle"
@@ -101,6 +113,18 @@
         "content/copy-latex.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "shared/defaults.js",
+        "content/gemini-frame-helper.js",
+        "content/gemini-ask-sidebar.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
     }
   ],
   "short_name": "ChatSprig"

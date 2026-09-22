@@ -115,3 +115,17 @@ code {
 .brand img { border-radius: 12px; }
 .brand h1 { margin: 0 0 4px; }
 .brand p { margin: 0; opacity: .65; }
+
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
+  border-radius: 6px;
+  background: Field;
+  color: FieldText;
+}

@@ -38,6 +38,16 @@
   async function save(el) {
     const key = el.dataset.key;
     let value = readField(el);
+    if (key === 'systemPromptInterval') {
+      value = Number(el.value);
+      if (!el.value.trim() || !Number.isSafeInteger(value) || value < 0) {
+        el.setAttribute('aria-invalid', 'true');
+        clearTimeout(statusTimer);
+        status.textContent = 'Repeat interval must be a non-negative whole number (0 = first message only).';
+        return;
+      }
+      el.removeAttribute('aria-invalid');
+    }
 
     if (key === 'targetUrl') {
       value = String(value).trim();
@@ -55,7 +65,10 @@
   }
 
   for (const el of fields) {
-    el.addEventListener('change', () => save(el));
+    el.addEventListener('change', () => save(el).catch(() => {
+      clearTimeout(statusTimer);
+      status.textContent = 'Could not save. The prompt may exceed Chrome Sync’s size limit. Shorten it and try again.';
+    }));
   }
 
   document.getElementById('open-shortcuts').addEventListener('click', () => {

@@ -5,6 +5,7 @@
   window.addEventListener('keydown', (event) => {
     if (!event.isTrusted || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     const command = event.code === 'KeyK' ? 'toggle-chat'
+      : event.code === 'KeyG' ? 'toggle-gemini'
       : event.code === 'KeyN' ? 'refresh-chat' : null;
     if (!command || !chrome.runtime?.id) return;
 

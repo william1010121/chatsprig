@@ -9,32 +9,32 @@ async function getActiveTab() {
   return tab || null;
 }
 
-async function sendToTab(tabId, type) {
+async function sendToTab(tabId, type, provider) {
   try {
-    const response = await chrome.tabs.sendMessage(tabId, { type }, { frameId: 0 });
+    const response = await chrome.tabs.sendMessage(tabId, { type, ...(provider ? { provider } : {}) }, { frameId: 0 });
     return response?.ok === true;
   } catch {
     return false;
   }
 }
 
-async function routeOverlay(tab, type) {
+async function routeOverlay(tab, type, provider) {
   tab = tab || (await getActiveTab());
   if (!tab?.id) return false;
 
-  const ok = await sendToTab(tab.id, type);
+  const ok = await sendToTab(tab.id, type, provider);
   await chrome.action.setBadgeText({ tabId: tab.id, text: ok ? '' : '!' });
   await chrome.action.setTitle({
     tabId: tab.id,
     title: ok
       ? 'ChatSprig Settings'
-      : 'ChatGPT cannot be embedded on this page. Refresh a regular web page and try again.'
+      : 'Chat cannot be embedded on this page. Refresh a regular web page and try again.'
   });
   return ok;
 }
 
-function toggleOverlay(tab) {
-  return routeOverlay(tab, 'toggleOverlay');
+function toggleOverlay(tab, provider = 'chatgpt') {
+  return routeOverlay(tab, 'toggleOverlay', provider);
 }
 
 function refreshOverlay(tab) {
@@ -44,7 +44,7 @@ function refreshOverlay(tab) {
 // A browser command and a page key event can describe the same physical press.
 let lastShortcut = null;
 async function handleShortcut(command, tab, source) {
-  if (!['toggle-chat', 'refresh-chat'].includes(command)) return false;
+  if (!['toggle-chat', 'toggle-gemini', 'refresh-chat'].includes(command)) return false;
   tab = tab || (await getActiveTab());
   if (!tab?.id) return false;
   const now = Date.now();
@@ -52,7 +52,8 @@ async function handleShortcut(command, tab, source) {
       lastShortcut.command === command && lastShortcut.source !== source &&
       now - lastShortcut.time < 250) return true;
   lastShortcut = { tabId: tab.id, command, source, time: now };
-  return command === 'toggle-chat' ? toggleOverlay(tab) : refreshOverlay(tab);
+  return command === 'refresh-chat' ? refreshOverlay(tab)
+    : toggleOverlay(tab, command === 'toggle-gemini' ? 'gemini' : 'chatgpt');
 }
 
 chrome.commands.onCommand.addListener((command, tab) => {
@@ -63,8 +64,80 @@ chrome.action.onClicked.addListener(() => {
   chrome.runtime.openOptionsPage();
 });
 
+const sidebarRequests = new Map();
+const sidebarFrames = new Map();
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const providerForUrl = (url = '') => /^https:\/\/gemini\.google\.com\//.test(url) ? 'gemini'
+  : /^https:\/\/(chatgpt\.com|chat\.openai\.com)\//.test(url) ? 'chatgpt' : null;
+
+async function askSidebar(message, sender) {
+  const tabId = sender.tab.id;
+  const provider = message.provider || 'chatgpt';
+  if (sidebarRequests.has(tabId)) return { message: 'Sidebar is still handling the previous selection.' };
+  const request = { id: crypto.randomUUID(), provider, documentId: null };
+  sidebarRequests.set(tabId, request);
+  try {
+    const deadline = Date.now() + 35000;
+    while (Date.now() < deadline && sidebarRequests.get(tabId) === request) {
+      const documentId = sidebarFrames.get(`${tabId}:${provider}`);
+      if (documentId) {
+        let frame;
+        try {
+          frame = await chrome.tabs.sendMessage(tabId, { type: 'sidebarProbe', provider }, { documentId });
+        } catch {
+          if (sidebarFrames.get(`${tabId}:${provider}`) === documentId) sidebarFrames.delete(`${tabId}:${provider}`);
+        }
+        if (frame?.ready && frame.provider === provider && sidebarRequests.get(tabId) === request) {
+          request.documentId = documentId;
+          return await chrome.tabs.sendMessage(tabId, {
+            type: 'sidebarFill', provider, id: request.id, text: message.text, autoSend: message.autoSend === true
+          }, { documentId });
+        }
+      } else {
+        // Helpers register their own exact document; discovery responses are never used as a fill target.
+        chrome.tabs.sendMessage(tabId, { type: 'sidebarDiscover', provider }).catch(() => {});
+      }
+      await pause(200);
+    }
+    return { message: 'Sidebar is not ready. Check sign-in and temporary mode, then try again.' };
+  } catch {
+    return { message: 'Sidebar changed while filling. Check the draft before trying again.' };
+  } finally {
+    if (sidebarRequests.get(tabId) === request) sidebarRequests.delete(tabId);
+  }
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  sidebarRequests.delete(tabId);
+  for (const provider of ['chatgpt', 'gemini']) sidebarFrames.delete(`${tabId}:${provider}`);
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== 'string') return false;
+
+  if (message.type === 'sidebarFrameIdentity' && sender.tab && sender.frameId > 0 && sender.documentId &&
+      providerForUrl(sender.url) === message.provider) {
+    sidebarFrames.set(`${sender.tab.id}:${message.provider}`, sender.documentId);
+    sendResponse({ documentId: sender.documentId });
+    return false;
+  }
+
+  if (['askSidebar', 'cancelSidebar'].includes(message.type)) {
+    if (!sender.tab || sender.frameId !== 0) return false;
+    if (message.type === 'cancelSidebar') {
+      const request = sidebarRequests.get(sender.tab.id);
+      sidebarRequests.delete(sender.tab.id);
+      if (request?.documentId) chrome.tabs.sendMessage(sender.tab.id, {
+        type: 'sidebarCancel', provider: request.provider, id: request.id
+      }, { documentId: request.documentId }).catch(() => {});
+      sendResponse({ ok: true });
+      return false;
+    }
+    const provider = message.provider || 'chatgpt';
+    if (providerForUrl(sender.url) !== provider || typeof message.text !== 'string' || !message.text.trim()) return false;
+    askSidebar(message, sender).then(sendResponse);
+    return true;
+  }
 
   if (message.type === 'shortcut' && sender.tab) {
     handleShortcut(message.command, sender.tab, 'page')
@@ -74,7 +147,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'toggle') {
-    toggleOverlay(sender.tab).then((ok) => sendResponse({ ok }));
+    toggleOverlay(sender.tab, message.provider === 'gemini' ? 'gemini' : 'chatgpt').then((ok) => sendResponse({ ok }));
     return true;
   }
 

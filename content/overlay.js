@@ -14,7 +14,15 @@
   let shadow = null;
   let iframe = null;
   let settings = null;
+  let provider = 'chatgpt';
+  const frames = new Map();
+  let focusGeneration = 0;
   let pendingFocusUntil = 0;
+
+  function readSessionProvider() {
+    try { return sessionStorage.getItem('cgptHelperProvider') === 'gemini' ? 'gemini' : 'chatgpt'; }
+    catch { return 'chatgpt'; }
+  }
 
   function readSessionOpen() {
     try {
@@ -26,6 +34,7 @@
 
   function writeSessionOpen(value) {
     try {
+      sessionStorage.setItem('cgptHelperProvider', provider);
       if (value) sessionStorage.setItem(SESSION_KEY, '1');
       else sessionStorage.removeItem(SESSION_KEY);
     } catch {
@@ -39,7 +48,7 @@
 
   function targetOrigin() {
     try {
-      return new URL(settings.targetUrl).origin;
+      return provider === 'gemini' ? 'https://gemini.google.com' : new URL(settings.targetUrl).origin;
     } catch {
       return 'https://chatgpt.com';
     }
@@ -56,6 +65,8 @@
       <style>
         :host {
           all: initial;
+          -webkit-user-select: none !important;
+          user-select: none !important;
           position: fixed !important;
           inset: 0 !important;
           z-index: 2147483647 !important;
@@ -72,6 +83,11 @@
           display: grid;
           place-items: center;
           pointer-events: none;
+        }
+        /* Exclude the shell from page selection; iframe documents stay selectable. */
+        .overlay * {
+          -webkit-user-select: none;
+          user-select: none;
         }
         .window {
           min-width: 380px;
@@ -132,6 +148,7 @@
           background: rgba(255, 255, 255, 0.14);
         }
         .body {
+          position: relative;
           flex: 1 1 auto;
           min-height: 0;
           background: #ffffff;
@@ -143,6 +160,14 @@
           border: 0;
           background: #ffffff;
         }
+        iframe[hidden], .frame-status[hidden], button[hidden] { display: none !important; }
+        .frame-status {
+          position: absolute; inset: 0; z-index: 1; background: #fff;
+          display: flex; align-items: center; justify-content: center;
+          flex-direction: column; gap: 16px; padding: 28px; text-align: center;
+          font-size: 14px; line-height: 1.6;
+        }
+        .frame-status button { width: auto; padding: 8px 16px; background: #111827; }
         .footer {
           height: 24px;
           flex: 0 0 auto;
@@ -172,7 +197,7 @@
               <button type="button" data-action="close" title="Close: Alt+K">×</button>
             </div>
           </div>
-          <div class="body"></div>
+          <div class="body"><div class="frame-status" hidden role="status"><span></span><button data-action="refresh" type="button">Retry temporary chat</button></div></div>
           <div class="footer">
             <span>Alt+K toggle · Alt+N new chat</span>
             <span class="muted">⌖ focus input</span>
@@ -202,85 +227,176 @@
     win.style.height = `min(${Number(settings.windowHeight) || 760}px, 88vh)`;
   }
 
-  function createOrReplaceIframe() {
-    ensureWindow();
-
-    const body = shadow.querySelector('.body');
-    if (iframe) {
-      iframe.remove();
-      iframe = null;
+  function renderProvider() {
+    const gemini = provider === 'gemini';
+    const label = gemini ? 'Gemini' : 'ChatGPT';
+    const shortcut = gemini ? 'Alt+G' : 'Alt+K';
+    shadow.querySelector('.window').setAttribute('aria-label', `${label} temporary chat`);
+    shadow.querySelector('.title').textContent = `ChatSprig · ${label} · Temporary Chat`;
+    shadow.querySelector('[data-action="close"]').title = `Close: ${shortcut}`;
+    shadow.querySelector('.footer span').textContent = `${shortcut} toggle · Alt+N new chat`;
+    const record = frames.get(provider);
+    const status = shadow.querySelector('.frame-status');
+    status.hidden = !gemini || record?.ready === true;
+    if (!status.hidden) {
+      status.querySelector('span').textContent = record?.error || 'Opening Gemini temporary chat…';
+      status.querySelector('button').hidden = !record?.error;
     }
-
-    iframe = document.createElement('iframe');
-    iframe.name = FRAME_NAME;
-    // Keep navigation inside the overlay; do not permit popups or top navigation.
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-downloads');
-    iframe.allow = 'clipboard-read; clipboard-write; microphone';
-    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
-    iframe.src = settings.targetUrl;
-
-    iframe.addEventListener('load', () => {
-      if (Date.now() < pendingFocusUntil) requestFocusPrompt();
-    });
-
-    body.appendChild(iframe);
+    for (const [key, value] of frames) {
+      value.frame.hidden = key !== provider;
+      value.frame.style.visibility = key === 'gemini' && !value.ready ? 'hidden' : '';
+    }
+    askStatus(record?.askStatus || '⌖ focus input');
   }
 
-  function show({ reload = false, focus = false } = {}) {
+  function createOrReplaceIframe() {
     ensureWindow();
+    const previous = frames.get(provider);
+    if (previous) {
+      window.clearTimeout(previous.timer);
+      previous.frame.remove();
+    }
+    const frame = document.createElement('iframe');
+    const key = provider;
+    frame.name = key === 'gemini' ? 'gemini_helper_overlay_frame' : FRAME_NAME;
+    frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-downloads');
+    frame.allow = 'clipboard-read; clipboard-write; microphone';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.src = key === 'gemini' ? 'https://gemini.google.com/app' : settings.targetUrl;
+    const record = { frame, ready: key !== 'gemini', loaded: false, error: '', timer: null };
+    frames.set(key, record);
+    iframe = frame;
+    if (key === 'gemini') {
+      record.timer = window.setTimeout(() => {
+        if (frames.get(key) !== record || record.ready) return;
+        record.error = 'Gemini did not become ready. Sign in at gemini.google.com in a regular tab, check third-party cookie restrictions, then retry.';
+        if (provider === key) renderProvider();
+      }, 30000);
+    }
+    frame.addEventListener('load', () => {
+      record.loaded = true;
+      if (provider === key && frames.get(key) === record && isOpen() && Date.now() < pendingFocusUntil) requestFocusPrompt();
+    });
+    shadow.querySelector('.body').appendChild(frame);
+  }
+
+  function show({ reload = false, focus = false, provider: nextProvider = provider } = {}) {
+    ensureWindow();
+    if (nextProvider !== provider) {
+      cancelAsk();
+      focusGeneration++;
+    }
+    provider = nextProvider;
     host.setAttribute('data-open', 'true');
     writeSessionOpen(true);
-
-    if (reload || !iframe) createOrReplaceIframe();
+    if (reload || !frames.has(provider)) createOrReplaceIframe();
+    iframe = frames.get(provider).frame;
+    renderProvider();
     if (focus && settings.focusPromptOnOpen) requestFocusPrompt();
   }
 
   function hide() {
+    cancelAsk();
+    focusGeneration++;
     if (!host) return;
     host.setAttribute('data-open', 'false');
     writeSessionOpen(false);
   }
 
-  function toggle() {
-    if (isOpen()) {
+  function toggle(nextProvider = 'chatgpt') {
+    if (isOpen() && nextProvider === provider) {
       if (settings.altKWhenOpen === 'focus') requestFocusPrompt();
       else hide();
       return;
     }
-    show({ reload: !iframe, focus: true });
+    show({ provider: nextProvider, focus: true });
   }
 
   function refresh() {
+    cancelAsk();
+    focusGeneration++;
     show({ reload: true, focus: true });
   }
 
   function requestFocusPrompt() {
     if (!iframe) return;
     pendingFocusUntil = Date.now() + 8000;
-
+    const frame = iframe;
+    const key = provider;
+    const generation = ++focusGeneration;
     const origin = targetOrigin();
     for (const delay of FOCUS_DELAYS) {
       window.setTimeout(() => {
-        if (!iframe || !isOpen()) return;
-        try {
-          iframe.focus();
-        } catch {
-          // ignore
-        }
-        try {
-          iframe.contentWindow.postMessage({ source: MESSAGE_SOURCE, action: 'focusPrompt' }, origin);
-        } catch {
-          // ignore
-        }
+        if (frame !== iframe || generation !== focusGeneration || !isOpen() || !frames.get(key)?.ready || !frames.get(key)?.loaded) return;
+        frame.focus();
+        frame.contentWindow.postMessage({ source: MESSAGE_SOURCE, action: 'focusPrompt' }, origin);
       }, delay);
     }
   }
+
+  window.addEventListener('message', (event) => {
+    const record = frames.get('gemini');
+    if (!record || event.source !== record.frame.contentWindow || event.origin !== 'https://gemini.google.com' ||
+        event.data?.source !== MESSAGE_SOURCE || event.data.action !== 'geminiState') return;
+    record.ready = event.data.ready === true;
+    record.loaded = true;
+    record.error = record.ready ? '' : (event.data.error || 'Opening Gemini temporary chat…');
+    window.clearTimeout(record.timer);
+    if (provider === 'gemini') {
+      renderProvider();
+      if (record.ready && isOpen() && settings.focusPromptOnOpen) requestFocusPrompt();
+    }
+  });
+
+  let pendingAsk = null;
+
+  function askStatus(text) {
+    const record = frames.get(provider);
+    if (record) record.askStatus = text;
+    const label = shadow?.querySelector('.footer .muted');
+    if (label) {
+      label.setAttribute('role', 'status');
+      label.textContent = text;
+      label.title = text;
+    }
+  }
+
+  function cancelAsk() {
+    if (!pendingAsk) return;
+    pendingAsk.controller.abort();
+    chrome.runtime.sendMessage({ type: 'cancelSidebar' }).catch(() => {});
+    pendingAsk = null;
+  }
+
+  // Shared only with this extension's other content scripts (isolated world).
+  globalThis.cgptAskInSidebar = async (text, requestedProvider = 'chatgpt') => {
+    await ready;
+    if (typeof text !== 'string' || !text.trim()) return;
+    if (pendingAsk) return;
+    if (!['chatgpt', 'gemini'].includes(requestedProvider)) return;
+    show({ provider: requestedProvider, focus: false });
+    const controller = new AbortController();
+    const request = { controller };
+    pendingAsk = request;
+    askStatus('Opening sidebar…');
+    try {
+      // Runtime routing keeps auto-send commands out of the page's message channel.
+      const result = await chrome.runtime.sendMessage({
+        type: 'askSidebar', provider: requestedProvider, text, autoSend: settings.autoSendAskInSidebar === true
+      });
+      if (!controller.signal.aborted) askStatus(result?.message || 'Could not fill sidebar. Please try again.');
+    } catch {
+      if (!controller.signal.aborted) askStatus('Could not reach sidebar. Please try again.');
+    } finally {
+      if (pendingAsk === request) pendingAsk = null;
+    }
+  };
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || !['toggleOverlay', 'refreshOverlay'].includes(message.type)) return false;
     if (!settings) {
       ready.then(() => {
-        if (message.type === 'toggleOverlay') toggle();
+        if (message.type === 'toggleOverlay') toggle(message.provider === 'gemini' ? 'gemini' : 'chatgpt');
         else refresh();
         sendResponse({ ok: true, open: isOpen() });
       }).catch(() => sendResponse({ ok: false }));
@@ -288,7 +404,7 @@
     }
 
     if (message.type === 'toggleOverlay') {
-      toggle();
+      toggle(message.provider === 'gemini' ? 'gemini' : 'chatgpt');
       sendResponse({ ok: true, open: isOpen() });
       return false;
     }
@@ -310,6 +426,7 @@
 
   async function init() {
     settings = await cgptLoadSettings();
+    provider = readSessionProvider();
     if (readSessionOpen()) show({ reload: true, focus: false });
   }
 

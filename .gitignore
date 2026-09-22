@@ -2,6 +2,7 @@
 _metadata/
 demo/
 dist/
+draft/
 .env
 .env.*
 !.env.example

@@ -25,7 +25,7 @@ test('every ChatGPT entry routes to the top frame and never opens a window or ta
   let response = { ok: true };
   let settingsOpened = 0;
   const chrome = {
-    tabs: {
+    tabs: { onRemoved: event(),
       query: async () => [{ id: 7 }],
       sendMessage: async (...args) => {
         messages.push(args);
@@ -49,7 +49,7 @@ test('every ChatGPT entry routes to the top frame and never opens a window or ta
   const context = vm.createContext({ chrome, DEFAULT_SETTINGS, loadSettings: async () => DEFAULT_SETTINGS });
   vm.runInContext(read('background.js').replace(/^import .*;\n/, ''), context);
   for (response of [{ ok: true }, undefined, new Error('no content script')]) {
-    for (const command of ['toggle-chat', 'refresh-chat']) {
+    for (const command of ['toggle-chat', 'toggle-gemini', 'refresh-chat']) {
       chrome.commands.onCommand.listener(command);
       await new Promise(setImmediate);
     }
@@ -59,7 +59,7 @@ test('every ChatGPT entry routes to the top frame and never opens a window or ta
     assert.equal(reply.ok, response?.ok === true);
     assert.equal(badges.at(-1).text, reply.ok ? '' : '!');
   }
-  assert.equal(messages.length, 9);
+  assert.equal(messages.length, 12);
   assert.equal(settingsOpened, 3);
   for (const [id, message, options] of messages) {
     assert.equal(id, 7);
@@ -75,7 +75,7 @@ test('early overlay request waits for settings and creates a sandboxed in-page f
   const body = { appendChild(frame) { frames.push(frame); } };
   const shadow = {
     innerHTML: '', addEventListener() {},
-    querySelector(selector) { return selector === '.body' ? body : { style: {} }; }
+    querySelector(selector) { return selector === '.body' ? body : { style: {}, setAttribute() {}, querySelector() { return {}; } }; }
   };
   const host = {
     attachShadow: () => shadow,
@@ -83,7 +83,7 @@ test('early overlay request waits for settings and creates a sandboxed in-page f
     getAttribute: (key) => attributes.get(key)
   };
   const onMessage = event();
-  const window = { setTimeout() {}, open() { assert.fail('must not open a popup'); } };
+  const window = { addEventListener() {}, clearTimeout() {}, setTimeout() {}, open() { assert.fail('must not open a popup'); } };
   window.top = window.self = window;
   const context = vm.createContext({
     window, URL,
@@ -95,7 +95,7 @@ test('early overlay request waits for settings and creates a sandboxed in-page f
       createElement(tag) {
         if (tag === 'div') return host;
         assert.equal(tag, 'iframe');
-        return { setAttribute(key, value) { this[key] = value; }, addEventListener() {}, remove() {} };
+        return { style: {}, setAttribute(key, value) { this[key] = value; }, addEventListener() {}, remove() {} };
       }
     }
   });
@@ -133,17 +133,19 @@ test('Windows Alt and macOS Option shortcuts work in every frame and input', () 
     return prevented;
   }
   assert.equal(press({}), true);
+  assert.equal(press({ code: 'KeyG', key: '©' }), true);
   assert.equal(press({ code: 'KeyN', key: 'Dead', target: { isContentEditable: true } }), true);
-  assert.deepEqual(messages.map((message) => message.command), ['toggle-chat', 'refresh-chat']);
+  assert.deepEqual(messages.map((message) => message.command), ['toggle-chat', 'toggle-gemini', 'refresh-chat']);
   assert.equal(press({ key: 'k' }), true);
+  assert.equal(press({ code: 'KeyG', key: 'g' }), true);
   assert.equal(press({ code: 'KeyN', key: 'n' }), true);
-  assert.deepEqual(messages.slice(2).map((message) => message.command), ['toggle-chat', 'refresh-chat']);
+  assert.deepEqual(messages.slice(3).map((message) => message.command), ['toggle-chat', 'toggle-gemini', 'refresh-chat']);
   assert.equal(press({ repeat: true }), true);
   for (const overrides of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true },
     { altKey: false }, { code: 'KeyA' }, { isTrusted: false }]) {
     assert.equal(press(overrides), false);
   }
-  assert.equal(messages.length, 4);
+  assert.equal(messages.length, 6);
   const manifest = JSON.parse(read('manifest.json'));
   assert.equal(manifest.commands['toggle-chat'].suggested_key.windows, 'Alt+K');
   assert.equal(manifest.commands['refresh-chat'].suggested_key.windows, 'Alt+N');
@@ -155,7 +157,7 @@ test('Windows Alt and macOS Option shortcuts work in every frame and input', () 
 test('browser and page events for one shortcut toggle only once', async () => {
   const messages = [];
   const chrome = {
-    tabs: { query: async () => [{ id: 7 }], sendMessage: async (...args) => { messages.push(args); return { ok: true }; } },
+    tabs: { onRemoved: event(), query: async () => [{ id: 7 }], sendMessage: async (...args) => { messages.push(args); return { ok: true }; } },
     action: { onClicked: event(), setBadgeText: async () => {}, setTitle: async () => {} },
     commands: { onCommand: event() },
     runtime: { onMessage: event(), onInstalled: event(), onStartup: event() },
@@ -163,14 +165,15 @@ test('browser and page events for one shortcut toggle only once', async () => {
   };
   const context = vm.createContext({ chrome });
   vm.runInContext(read('background.js').replace(/^import .*;\n/, ''), context);
-  for (const command of ['toggle-chat', 'refresh-chat']) {
+  for (const command of ['toggle-chat', 'toggle-gemini', 'refresh-chat']) {
     chrome.commands.onCommand.listener(command, { id: 7 });
     await new Promise((resolve) => chrome.runtime.onMessage.listener(
       { type: 'shortcut', command }, { tab: { id: 7 }, frameId: 12 }, resolve));
   }
-  assert.equal(messages.length, 2);
+  assert.equal(messages.length, 3);
   assert.equal(messages[0][2].frameId, 0);
-  assert.equal(messages[1][1].type, 'refreshOverlay');
+  assert.equal(messages[1][1].provider, 'gemini');
+  assert.equal(messages[2][1].type, 'refreshOverlay');
 });
 
 test('ChatGPT launcher survives page removal and respects visibility changes', async () => {
@@ -192,9 +195,9 @@ test('ChatGPT launcher survives page removal and respects visibility changes', a
     chrome: { storage: { onChanged }, runtime: { sendMessage: async (message) => messages.push(message) } },
     document: { documentElement: root, createElement() {
       return { style: {}, isConnected: false, setAttribute() {}, remove() { this.isConnected = false; },
-        attachShadow() { return { innerHTML: '', querySelector() { return {
-          addEventListener(type, callback) { buttonClick = callback; }
-        }; } }; }
+        attachShadow() { return { innerHTML: '', querySelectorAll() { return [{
+          dataset: { provider: 'chatgpt' }, addEventListener(type, callback) { buttonClick = callback; }
+        }]; } }; }
       };
     } }
   });
@@ -224,6 +227,7 @@ test('upgrade restores the missing launcher once, while later upgrades keep pref
   let saved;
   const existing = { ...DEFAULT_SETTINGS, showLauncher: false, launcherHideOnChatgpt: true, launcherPosition: 'top-left' };
   const chrome = {
+    tabs: { onRemoved: event() },
     commands: { onCommand: event() }, action: { onClicked: event() },
     runtime: { onMessage: event(), onInstalled: event(), onStartup: event() },
     cookies: { onChanged: event() },

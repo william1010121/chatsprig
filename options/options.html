@@ -11,14 +11,14 @@
 
     <section>
       <h2>Keyboard shortcuts</h2>
-      <p class="hint">Press <kbd>Alt+K</kbd> to toggle the overlay or <kbd>Alt+N</kbd> to start a new temporary chat. On macOS, use the Option key instead of Alt.</p>
+      <p class="hint">Press <kbd>Alt+K</kbd> for ChatGPT, <kbd>Alt+G</kbd> for Gemini, or <kbd>Alt+N</kbd> to start a new temporary chat. On macOS, use the Option key instead of Alt.</p>
       <button type="button" id="open-shortcuts">Change shortcuts</button>
     </section>
 
     <section>
       <h2>Chat overlay</h2>
       <label class="row">
-        <span>When Alt+K is pressed while the overlay is open</span>
+        <span>When the current service’s shortcut is pressed again</span>
         <select data-key="altKWhenOpen">
           <option value="hide">Close the overlay</option>
           <option value="focus">Focus the prompt input</option>
@@ -33,13 +33,23 @@
         <input type="number" min="420" max="4000" step="10" data-key="windowHeight">
       </label>
       <label class="row">
-        <span>Hide the ChatGPT sidebar</span>
+        <span>Hide the sidebar inside either embedded chat</span>
         <input type="checkbox" data-key="hideChatgptSidebar">
       </label>
       <label class="row">
         <span>Focus the prompt input when opening</span>
         <input type="checkbox" data-key="focusPromptOnOpen">
       </label>
+      <label class="row">
+        <span>Default Gemini model for new temporary chats</span>
+        <select data-key="geminiModel">
+          <option value="current">Use Gemini’s current model</option>
+          <option value="flash-lite">Flash-Lite</option>
+          <option value="flash">Flash</option>
+          <option value="pro">Pro</option>
+        </select>
+      </label>
+      <p class="hint">Applied when Gemini first opens or you start a new temporary chat (Alt+N). Existing conversations keep their model. Model availability depends on your Google account.</p>
       <label class="row">
         <span>ChatGPT URL</span>
         <input type="url" data-key="targetUrl" spellcheck="false">
@@ -81,6 +91,31 @@
         <span>Hide the launcher on ChatGPT websites</span>
         <input type="checkbox" data-key="launcherHideOnChatgpt">
       </label>
+    </section>
+
+    <section>
+      <h2>Ask in sidebar</h2>
+      <label class="row">
+        <span>Automatically send selected text to the same service (ChatGPT or Gemini)</span>
+        <input type="checkbox" data-key="autoSendAskInSidebar">
+      </label>
+      <p class="hint">Existing drafts and ongoing responses always wait for review. Gemini uses plain selected text.</p>
+    </section>
+
+    <section>
+      <h2>System prompt</h2>
+      <label class="row">
+        <span>Append system prompt (Chat mode only)</span>
+        <input type="checkbox" data-key="appendSystemPrompt">
+      </label>
+      <p class="hint" id="system-prompt-hint">Prepended above eligible messages in ChatGPT Chat mode only. Disabled in Work and Gemini. This is ordinary message text, not an API system role. Leave empty to add nothing.</p>
+      <label class="row">
+        <span>Repeat every k user messages</span>
+        <input type="number" data-key="systemPromptInterval" min="0" max="9007199254740991" step="1" required aria-describedby="system-prompt-interval-hint">
+      </label>
+      <p class="hint" id="system-prompt-interval-hint">0 = first message only; 1 = every message; 3 = messages 1, 4, 7, 10… AI responses do not count. Changing k recalculates from the start of the current conversation.</p>
+      <label for="system-prompt">Prompt text</label>
+      <textarea id="system-prompt" data-key="systemPrompt" rows="8" aria-describedby="system-prompt-hint" placeholder="Enter your preferred style and instructions…"></textarea>
     </section>
 
     <section>

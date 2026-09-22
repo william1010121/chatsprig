@@ -114,8 +114,106 @@
 
   window.addEventListener('message', (event) => {
     const data = event.data;
-    if (!data || data.source !== MESSAGE_SOURCE) return;
+    if (event.source !== window.parent || !data || data.source !== MESSAGE_SOURCE) return;
     if (data.action === 'focusPrompt') focusPromptInputWhenReady();
+  });
+
+  let activeFill = null;
+  const handled = new Set();
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const normalize = (text) => text.replace(/\r\n/g, '\n').replace(/\u00a0/g, ' ').trim();
+  function inputText(el) {
+    if (el instanceof HTMLTextAreaElement) return el.value;
+    const read = (node) => {
+      if (node.nodeType === 3) return node.nodeValue;
+      if (node.nodeName === 'BR') return node.classList.contains('ProseMirror-trailingBreak') ? '' : '\n';
+      return [...node.childNodes].map(read).join('');
+    };
+    return [...el.childNodes].map(read).join('\n');
+  }
+  const generating = () => !!document.querySelector('[data-testid="stop-button"], button[aria-label="Stop answering"], button[aria-label="停止產生"], button[aria-label="停止生成"]');
+
+  async function fillSelection(message) {
+    if (handled.has(message.id) || activeFill) return { message: 'Selection already handled or sidebar busy.' };
+    handled.add(message.id);
+    const operation = { id: message.id, cancelled: false };
+    activeFill = operation;
+    try {
+      let input;
+      const deadline = Date.now() + 10000;
+      let wasGenerating = generating();
+      while (!operation.cancelled && Date.now() < deadline) {
+        input = findPromptInput();
+        wasGenerating ||= generating();
+        if (input && (input.isContentEditable || input instanceof HTMLTextAreaElement) &&
+            !input.disabled && input.getClientRects().length) break;
+        input = null;
+        await sleep(150);
+      }
+      if (operation.cancelled) return { message: 'Cancelled.' };
+      if (!input) return { message: 'No input found. Check sidebar sign-in, then try again.' };
+      const draft = inputText(input);
+      const hasDraft = !!normalize(draft);
+      const addition = (hasDraft ? '\n\n' : '') + message.text;
+      const expected = (hasDraft ? draft : '') + addition;
+      focusElement(input);
+      moveCaretToEnd(input);
+      if (input instanceof HTMLTextAreaElement) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+        setter.call(input, expected);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        // insertText updates ProseMirror's document and undo history, not just its DOM.
+        if (!document.execCommand('insertText', false, addition)) {
+          return { message: 'Could not fill sidebar. Please paste the selection manually.' };
+        }
+      }
+      await sleep(100);
+      if (normalize(inputText(input)) !== normalize(expected)) {
+        return { message: 'Could not verify the draft. Please check it before sending.' };
+      }
+      if (hasDraft || wasGenerating || generating() || !message.autoSend) {
+        return { message: hasDraft ? 'Added to existing draft · review before sending.' : 'Selection added · ready for your question.' };
+      }
+      const sendDeadline = Date.now() + 3000;
+      while (!operation.cancelled && Date.now() < sendDeadline) {
+        if (!input.isConnected || normalize(inputText(input)) !== normalize(expected) || generating()) break;
+        const button = document.querySelector('[data-testid="send-button"], #composer-submit-button');
+        if (button && !button.disabled && button.getAttribute('aria-disabled') !== 'true' && button.getClientRects().length) {
+          button.click();
+          return { message: 'Selection sent.' };
+        }
+        await sleep(100);
+      }
+      return { message: 'Selection filled · please send when ready.' };
+    } catch {
+      return { message: 'Could not fill sidebar. Check the draft before trying again.' };
+    } finally {
+      activeFill = null;
+    }
+  }
+
+  function registerFrame() {
+    chrome.runtime.sendMessage({ type: 'sidebarFrameIdentity', provider: 'chatgpt' }).catch(() => {});
+  }
+  registerFrame();
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (sender.id !== chrome.runtime.id) return false;
+    if (message?.provider && message.provider !== 'chatgpt') return false;
+    if (message?.type === 'sidebarDiscover') { registerFrame(); return false; }
+    if (message?.type === 'sidebarProbe') {
+      sendResponse({ ready: true, provider: 'chatgpt' });
+      return false;
+    }
+    if (message?.type === 'sidebarCancel') {
+      if (activeFill?.id === message.id) activeFill.cancelled = true;
+      return false;
+    }
+    if (message?.type !== 'sidebarFill' || typeof message.id !== 'string' ||
+        typeof message.text !== 'string' || !message.text.trim()) return false;
+    fillSelection(message).then(sendResponse);
+    return true;
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {

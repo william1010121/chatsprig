@@ -104,6 +104,10 @@
     return foundMath && text.trim() ? text : null;
   }
 
+  // Reuse the exact clipboard conversion from other extension content scripts.
+  // Capture while the selection still exists; opening the overlay moves focus.
+  globalThis.cgptGetSelectedLatex = () => enabled ? getSelectedLatex() : null;
+
   function isCopyShortcut(event) {
     return (
       event.key?.toLowerCase() === 'c' &&
