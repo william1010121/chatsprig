@@ -36,6 +36,10 @@ ChatSprig opens the ChatGPT and Gemini websites directly. On either service’s 
 
 **Chrome Web Store:** [install the current public release (2.1.1)](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The `main` branch contains the upcoming 2.2.0 release with Gemini, Ask in sidebar, Compact view, and custom prompt support.
 
+### Demo
+
+Watch the [ChatSprig 2.1.1 workflow demo](demo/ChatSprig-2.1.1-demo-1080p.mp4), with the keyboard interaction and the full open → ask → return flow shown on screen. See the [demo notes and attribution](demo/README.md).
+
 ### Install from this repository
 
 1. Clone or download this repository.
