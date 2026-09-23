@@ -7,7 +7,7 @@
     <a href="https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe"><img src="https://img.shields.io/badge/Chrome_Web_Store-Install-174D3B?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Install ChatSprig from the Chrome Web Store"></a>
     <a href="https://github.com/william1010121/chatsprig/stargazers"><img src="https://img.shields.io/badge/%E2%98%85-Star%20on%20GitHub-174D3B?style=for-the-badge" alt="Star on GitHub"></a>
     <img src="https://img.shields.io/badge/Chrome-Manifest%20V3-FAF7EF?style=for-the-badge&logo=googlechrome&logoColor=174D3B" alt="Chrome Manifest V3">
-    <img src="https://img.shields.io/badge/version-2.2.0-174D3B?style=for-the-badge" alt="Version 2.2.0">
+    <img src="https://img.shields.io/badge/version-2.3.0-174D3B?style=for-the-badge" alt="Version 2.3.0">
   </p>
   <p><a href="#meet-chatsprig">Features</a> · <a href="#get-started">Get started</a> · <a href="#keyboard-shortcuts">Shortcuts</a> · <a href="#privacy--permissions">Privacy</a></p>
 </div>
@@ -34,7 +34,7 @@ ChatSprig opens the ChatGPT and Gemini websites directly. On either service’s 
 
 ## Get started
 
-**Chrome Web Store:** [install the current public release (2.1.1)](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The `main` branch contains the upcoming 2.2.0 release with Gemini, Ask in sidebar, Compact view, and custom prompt support.
+**Chrome Web Store:** [install ChatSprig](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The `main` branch contains version 2.3.0 with Gemini, Ask in sidebar, Compact view controls, custom prompts, and skill completion.
 
 ### Demo
 
@@ -67,9 +67,11 @@ The fixed Alt/Option+K, Alt/Option+G, and Alt/Option+N page shortcuts also work 
 - Hide the sidebar inside either service’s overlay.
 - Focus the prompt automatically when opening.
 - Choose whether the toggle shortcut closes the overlay or focuses it.
+- Save text templates in Settings → Skills. Type `//` at the start of a line or after a space in a ChatGPT or Gemini prompt, then type a name to filter. Arrow keys and Enter select a skill; Escape closes the menu. Selection inserts editable text without sending. Custom skills stay in this browser (`chrome.storage.local`).
+- `//system-prompt` inserts the current text from Settings → System prompt wherever skill completion is available. It is separate from automatic append, so using both may repeat the text.
 - Show or hide the launcher, including specifically on ChatGPT websites.
 - Enable LaTeX copying and configure cross-site sign-in compatibility.
-- Toggle **Compact view** with the control at the bottom of ChatGPT’s model picker in both Chat and Work. It joins adjacent text paragraphs for reading and uses comfortable paragraph/list spacing, 1.65 line height, and 12% side margins. The choice syncs across tabs and also applies inside the overlay; turning it off restores ChatGPT’s layout.
+- Toggle **Compact view** with the control at the bottom of ChatGPT’s model picker in both Chat and Work. It uses comfortable paragraph/list spacing, 1.65 line height, and 12% side margins. Settings → Compact view has a **Join adjacent text paragraphs** option, on by default; turn it off to keep paragraph breaks. The choices sync across tabs and also apply inside the overlay; turning Compact view off restores ChatGPT’s layout.
 
 ### Gemini and switching services
 
@@ -105,7 +107,7 @@ The main ChatGPT website keeps its own sidebar. The sidebar preference applies o
 | Access | Purpose |
 | --- | --- |
 | Web-page content scripts | Display the launcher, handle shortcuts, and host the overlay. On ChatGPT, also focus the prompt, hide the embedded sidebar, and convert selected math when copying. |
-| Storage | Save and sync preferences. |
+| Storage | Sync preferences and save custom skill templates locally. |
 | ChatGPT cookies | Support cross-site sign-in when cookie rewriting is enabled. |
 | Declarative network rules with host access | Remove frame-blocking response headers from ChatGPT subframes and X-Frame-Options from Gemini subframes, limited to granted host access. |
 

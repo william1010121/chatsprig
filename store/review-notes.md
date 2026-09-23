@@ -1,6 +1,6 @@
 # ChatSprig submission notes
 
-- Version: 2.2.0
+- Version: 2.3.0 draft
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
@@ -12,7 +12,7 @@ Provide an in-page workspace for temporary ChatGPT and Gemini conversations, wit
 
 ## Permission explanations
 
-- storage: Store and sync user-selected overlay, launcher, shortcut behavior, LaTeX-copy, and cookie compatibility settings using chrome.storage.sync.
+- storage: Store and sync user-selected overlay, launcher, shortcut behavior, LaTeX-copy, and cookie compatibility settings using chrome.storage.sync; store user-created text templates in chrome.storage.local.
 - cookies: Read and rewrite eligible chatgpt.com and chat.openai.com cookies to SameSite=None; Secure when cookie compatibility is enabled. This allows existing ChatGPT sign-in cookies to work in a cross-site iframe where browser policy permits. Cookie values stay in the browser and are not sent to the developer. Enabled by default; Settings can stop future rewrites but cannot undo earlier changes.
 - declarativeNetRequestWithHostAccess: Apply the packaged static rules.json rules to remove frame-blocking response headers from ChatGPT subframes and X-Frame-Options from Gemini subframes. Rules require granted host access to the listed service domains.
 - Host/content-script access: Content scripts on supported web pages provide the floating launcher, keyboard fallback, and overlay host. ChatGPT-specific scripts focus the prompt, hide its embedded sidebar, provide Compact view and optional saved instructions, and convert selected math when copying. Gemini-specific scripts verify temporary mode and the requested model. Access to the ChatGPT and Gemini hosts supports these user-facing features and frame compatibility. The surrounding page is not automatically sent to either service.
@@ -36,12 +36,13 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 5. Press Alt+N / Option+N to create a fresh temporary chat in the current service.
 6. On the main ChatGPT or Gemini website, select message text and choose Ask in sidebar. Verify only that selection is transferred to the matching service.
 7. On ChatGPT, test Compact view, optional saved instructions in Chat mode, and LaTeX copying.
-8. Disable cookie rewriting to stop future ChatGPT cookie changes. Browser restrictions and provider availability may still limit cross-site login.
+8. In Settings, add a skill, then type `//` in a ChatGPT or Gemini prompt. Select it with Enter and confirm the draft is filled without sending. Test `//system-prompt` after setting prompt text.
+9. Disable cookie rewriting to stop future ChatGPT cookie changes. Browser restrictions and provider availability may still limit cross-site login.
 
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: Version 2.2.0 pending review; submitted September 22, 2026. Automatic publishing after approval is enabled.
+- Status: Version 2.3.0 has not been submitted. Version 2.2.0 was submitted September 22, 2026 and had automatic publishing after approval enabled.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.

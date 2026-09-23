@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS = {
   launcherHideOnChatgpt: false,
   enableLatexCopy: true,
   compactView: false,
+  compactJoinParagraphs: true,
   autoSendAskInSidebar: true,
   appendSystemPrompt: false,
   systemPrompt: '',

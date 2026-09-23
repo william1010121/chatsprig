@@ -1,0 +1,201 @@
+// Text-template completion in ChatGPT and Gemini composers.
+(function () {
+  'use strict';
+  if (!/^(chatgpt\.com|chat\.openai\.com|gemini\.google\.com)$/.test(location.hostname)) return;
+
+  const composerSelector = '#prompt-textarea, [data-testid="prompt-textarea"], .ql-editor[contenteditable="true"][role="textbox"]';
+  const name = 'chatsprig-skills';
+  let skills = [];
+  let systemPrompt = '';
+  let active = null;
+  let selectedIndex = 0;
+  let composing = false;
+  let host;
+  let list;
+
+  function composer(target) {
+    const el = target?.closest?.(composerSelector);
+    return el && (el.isContentEditable || el instanceof HTMLTextAreaElement) ? el : null;
+  }
+  function triggerFor(input) {
+    if (input instanceof HTMLTextAreaElement) {
+      if (input.selectionStart !== input.selectionEnd) return null;
+      const before = input.value.slice(0, input.selectionStart);
+      const match = before.match(/(?:^|\s)\/\/([^\r\n]{0,80})$/u);
+      if (!match) return null;
+      const token = '//' + match[1];
+      return { input, query: match[1], token, start: input.selectionStart - token.length, end: input.selectionStart };
+    }
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) return null;
+    const caret = selection.getRangeAt(0);
+    if (!caret.collapsed || !input.contains(caret.startContainer)) return null;
+    const beforeRange = document.createRange();
+    const container = caret.startContainer.nodeType === 1 ? caret.startContainer : caret.startContainer.parentElement;
+    const paragraph = container?.closest('p');
+    beforeRange.selectNodeContents(paragraph && input.contains(paragraph) ? paragraph : input);
+    beforeRange.setEnd(caret.startContainer, caret.startOffset);
+    const match = beforeRange.toString().match(/(?:^|\s)\/\/([^\r\n]{0,80})$/u);
+    if (!match) return null;
+    const token = '//' + match[1];
+    const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (let index = nodes.length - 1; index >= 0; index--) {
+      const node = nodes[index];
+      const range = document.createRange();
+      range.setStart(node, 0);
+      range.setEnd(caret.startContainer, caret.startOffset);
+      const length = range.toString().length;
+      const offset = length - token.length;
+      if (offset < 0 || offset > node.length) continue;
+      range.setStart(node, offset);
+      if (range.toString() === token) return { input, query: match[1], token, range };
+    }
+    return null;
+  }
+  function available() {
+    const items = skills.filter(skill => skill && typeof skill.name === 'string' && typeof skill.content === 'string');
+    if (systemPrompt.trim()) items.unshift({ name: 'system-prompt', content: systemPrompt });
+    return items;
+  }
+  function matches(query) {
+    const needle = query.trim().toLocaleLowerCase();
+    return available().filter(skill => skill.name.toLocaleLowerCase().includes(needle));
+  }
+  function ensureMenu() {
+    if (host) return;
+    host = document.createElement('div');
+    host.id = name;
+    host.hidden = true;
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `<style>
+      :host { all: initial; position: fixed; z-index: 2147483647; width: min(320px, 90vw); font: 13px/1.4 ui-sans-serif, system-ui, sans-serif; color: #17212b; }
+      :host([hidden]) { display: none !important; }
+      .menu { max-height: 260px; overflow: auto; background: #fff; border: 1px solid #c7ccd1; border-radius: 10px; box-shadow: 0 12px 35px #0003; padding: 5px; }
+      button { box-sizing: border-box; width: 100%; display: block; border: 0; border-radius: 6px; padding: 8px 10px; text-align: left; font: inherit; color: inherit; background: transparent; cursor: pointer; }
+      button[aria-selected="true"], button:hover { background: #e8f1ee; }
+      strong { display: block; overflow-wrap: anywhere; }
+      small { display: block; color: #64717c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .empty { padding: 9px 10px; color: #64717c; }
+    </style><div class="menu" role="listbox" aria-label="Skills"></div>`;
+    list = shadow.querySelector('.menu');
+    shadow.addEventListener('mousedown', event => event.preventDefault());
+    shadow.addEventListener('click', event => {
+      const button = event.target.closest('button[data-index]');
+      if (button) choose(Number(button.dataset.index));
+    });
+    document.documentElement.appendChild(host);
+  }
+  function close() {
+    active = null;
+    if (host) host.hidden = true;
+  }
+  function render() {
+    if (!active) return;
+    ensureMenu();
+    const choices = matches(active.query);
+    selectedIndex = Math.min(selectedIndex, Math.max(0, choices.length - 1));
+    list.replaceChildren();
+    if (!choices.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = available().length ? 'No matching skills' : 'Add skills in ChatSprig Settings';
+      list.appendChild(empty);
+    }
+    choices.forEach((skill, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.index = String(index);
+      button.setAttribute('role', 'option');
+      button.setAttribute('aria-selected', String(index === selectedIndex));
+      const title = document.createElement('strong');
+      title.textContent = `//${skill.name}`;
+      const preview = document.createElement('small');
+      preview.textContent = skill.content.replace(/\s+/g, ' ').slice(0, 100);
+      button.append(title, preview);
+      list.appendChild(button);
+    });
+    host.hidden = false;
+    const rect = active.input.getBoundingClientRect();
+    const height = host.getBoundingClientRect().height;
+    host.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - host.offsetWidth - 8))}px`;
+    host.style.top = `${Math.max(8, rect.top - height - 6)}px`;
+  }
+  function update() {
+    if (composing) return;
+    const input = composer(document.activeElement);
+    const next = input && triggerFor(input);
+    if (!next) { close(); return; }
+    if (!active || active.input !== next.input || active.token !== next.token) selectedIndex = 0;
+    active = next;
+    render();
+  }
+  function choose(index) {
+    if (!active) return;
+    const skill = matches(active.query)[index];
+    if (!skill) { close(); return; }
+    const { input } = active;
+    if (!input.isConnected) { close(); return; }
+    input.focus({ preventScroll: true });
+    if (input instanceof HTMLTextAreaElement) {
+      input.setRangeText(skill.content, active.start, active.end, 'end');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(active.range);
+      // Native editing updates ProseMirror and Quill state, unlike direct DOM replacement.
+      document.execCommand('insertText', false, skill.content);
+    }
+    close();
+  }
+  window.addEventListener('keydown', event => {
+    if (!active || event.isComposing || event.keyCode === 229 || !composer(event.target)) return;
+    if (event.key === 'Escape') {
+      event.preventDefault(); event.stopImmediatePropagation(); close(); return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault(); event.stopImmediatePropagation();
+      const count = matches(active.query).length;
+      if (count) selectedIndex = (selectedIndex + (event.key === 'ArrowDown' ? 1 : -1) + count) % count;
+      render();
+      return;
+    }
+    if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      choose(selectedIndex);
+    }
+  }, true);
+  document.addEventListener('input', event => {
+    if (composer(event.target)) update();
+  }, true);
+  document.addEventListener('selectionchange', () => {
+    if (active && document.activeElement === active.input) update();
+  });
+  document.addEventListener('compositionstart', event => {
+    if (composer(event.target)) { composing = true; close(); }
+  }, true);
+  document.addEventListener('compositionend', event => {
+    if (composer(event.target)) { composing = false; update(); }
+  }, true);
+  document.addEventListener('pointerdown', event => {
+    if (active && !composer(event.target) && !host?.contains(event.target)) close();
+  }, true);
+  chrome.storage.local.get({ skills: [] }).then(result => {
+    skills = Array.isArray(result.skills) ? result.skills : [];
+    render();
+  }).catch(() => {});
+  cgptLoadSettings().then(settings => {
+    systemPrompt = typeof settings.systemPrompt === 'string' ? settings.systemPrompt : '';
+    render();
+  }).catch(() => {});
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.skills) skills = Array.isArray(changes.skills.newValue) ? changes.skills.newValue : [];
+    if (area === 'sync' && changes.systemPrompt) {
+      systemPrompt = typeof changes.systemPrompt.newValue === 'string' ? changes.systemPrompt.newValue : '';
+    }
+    render();
+  });
+  globalThis.cgptSkillCompletion = { isMenuOpen: () => !!active };
+})();

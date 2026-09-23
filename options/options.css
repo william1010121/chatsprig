@@ -129,3 +129,14 @@ textarea {
   background: Field;
   color: FieldText;
 }
+
+#skill-form { display: grid; gap: 8px; margin-top: 16px; }
+#skill-form input { box-sizing: border-box; width: 100%; padding: 8px 10px; font: inherit; color: FieldText; background: Field; border: 1px solid color-mix(in srgb, CanvasText 25%, transparent); border-radius: 6px; }
+#skill-form textarea { margin-top: 0; }
+.skill-actions { display: flex; gap: 8px; margin-top: 4px; }
+.skill-item { display: flex; align-items: start; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent); }
+.skill-item strong { display: block; overflow-wrap: anywhere; }
+.skill-item p { margin: 4px 0 0; opacity: .7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.skill-item .skill-actions { flex: 0 0 auto; margin: 0; }
+.skill-item button { padding: 4px 8px; }
+[hidden] { display: none !important; }

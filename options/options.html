@@ -9,6 +9,23 @@
   <main>
     <header class="brand"><img src="../icons/icon128.png" width="56" height="56" alt=""><div><h1>ChatSprig Settings</h1><p>Ask here. Stay here.</p></div></header>
 
+    <section id="skills-section">
+      <h2>Skills</h2>
+      <p class="hint">Type <code>//</code> in a ChatGPT or Gemini prompt to choose a text template. Skills are saved in this browser.</p>
+      <div id="skill-list" aria-live="polite"></div>
+      <form id="skill-form">
+        <label for="skill-name">Skill name</label>
+        <input id="skill-name" type="text" maxlength="80" required autocomplete="off" placeholder="e.g. summarize">
+        <label for="skill-content">Text to insert</label>
+        <textarea id="skill-content" rows="6" required placeholder="Write the text to insert into your draft…"></textarea>
+        <div class="skill-actions">
+          <button type="submit" id="skill-save">Add skill</button>
+          <button type="button" id="skill-cancel" hidden>Cancel edit</button>
+        </div>
+      </form>
+      <p id="skill-status" class="hint" role="status" aria-live="polite"></p>
+    </section>
+
     <section>
       <h2>Keyboard shortcuts</h2>
       <p class="hint">Press <kbd>Alt+K</kbd> for ChatGPT, <kbd>Alt+G</kbd> for Gemini, or <kbd>Alt+N</kbd> to start a new temporary chat. On macOS, use the Option key instead of Alt.</p>
@@ -103,7 +120,17 @@
     </section>
 
     <section>
+      <h2>Compact view</h2>
+      <label class="row">
+        <span>Join adjacent text paragraphs</span>
+        <input type="checkbox" data-key="compactJoinParagraphs">
+      </label>
+      <p class="hint">Applies when Compact view is on. Turn off to keep paragraph breaks while using its other spacing adjustments.</p>
+    </section>
+
+    <section id="system-prompt-section">
       <h2>System prompt</h2>
+      <p class="hint">The built-in <code>//system-prompt</code> inserts the prompt text below when it is not empty.</p>
       <label class="row">
         <span>Append system prompt (Chat mode only)</span>
         <input type="checkbox" data-key="appendSystemPrompt">
@@ -130,5 +157,6 @@
   </main>
   <script src="../shared/defaults.js"></script>
   <script src="options.js"></script>
+  <script src="skills.js"></script>
 </body>
 </html>

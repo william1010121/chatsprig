@@ -5,6 +5,7 @@
   const BUTTON_ID = 'cgpt-helper-compact-toggle';
   const PROMPT_ID = 'cgpt-helper-system-prompt-toggle';
   const CLASS = 'cgpt-helper-compact';
+  const JOIN_CLASS = 'cgpt-helper-compact-join-paragraphs';
   const PICKER = '[data-testid="composer-intelligence-picker-content"]';
   if (document.getElementById(STYLE_ID)) return;
 
@@ -51,11 +52,11 @@
     }
     html.${CLASS} [data-message-author-role="assistant"] .markdown hr { margin: 8px 0 !important; }
     /* Join adjacent prose visually; leave React's message DOM untouched. */
-    html.${CLASS} [data-message-author-role="assistant"] .markdown > :is(
+    html.${CLASS}.${JOIN_CLASS} [data-message-author-role="assistant"] .markdown > :is(
       p:not(:has(.katex-display, math[display="block"], img, br)):has(+ p:not(:has(.katex-display, math[display="block"], img, br))),
       p:not(:has(.katex-display, math[display="block"], img, br)) + p:not(:has(.katex-display, math[display="block"], img, br))
     ) { display: inline !important; }
-    html.${CLASS} [data-message-author-role="assistant"] .markdown >
+    html.${CLASS}.${JOIN_CLASS} [data-message-author-role="assistant"] .markdown >
       p:not(:has(.katex-display, math[display="block"], img, br)):has(+ p:not(:has(.katex-display, math[display="block"], img, br)))::after {
       content: " "; white-space: pre;
     }
@@ -70,6 +71,7 @@
   document.documentElement.appendChild(style);
 
   let enabled = false;
+  let joinParagraphs = true;
   let saving = false;
   let appendPrompt = false;
   let savingPrompt = false;
@@ -83,6 +85,7 @@
   window.addEventListener('cgpt-helper-mode-change', updatePromptVisibility);
   function render() {
     document.documentElement.classList.toggle(CLASS, enabled);
+    document.documentElement.classList.toggle(JOIN_CLASS, joinParagraphs);
     const promptToggle = document.getElementById(PROMPT_ID);
     if (promptToggle) {
       promptToggle.setAttribute('aria-pressed', String(appendPrompt));
@@ -164,6 +167,7 @@
     if (area !== 'sync') return;
     if (changes.systemPromptInterval) interval = Number.isSafeInteger(changes.systemPromptInterval.newValue) && changes.systemPromptInterval.newValue >= 0 ? changes.systemPromptInterval.newValue : 0;
     if (changes.compactView) enabled = changes.compactView.newValue === true;
+    if (changes.compactJoinParagraphs) joinParagraphs = changes.compactJoinParagraphs.newValue === true;
     if (changes.appendSystemPrompt) appendPrompt = changes.appendSystemPrompt.newValue === true;
     render();
   });
@@ -171,6 +175,7 @@
   cgptLoadSettings().then((settings) => {
     interval = Number.isSafeInteger(settings.systemPromptInterval) && settings.systemPromptInterval >= 0 ? settings.systemPromptInterval : 0;
     enabled = settings.compactView === true;
+    joinParagraphs = settings.compactJoinParagraphs !== false;
     appendPrompt = settings.appendSystemPrompt === true;
     mount();
     render();
