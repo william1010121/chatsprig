@@ -17,10 +17,7 @@
     if (!isChatgpt) return 'unknown';
     const composer = document.querySelector('form[data-type="unified-composer"]');
     if (!composer) return 'unknown';
-    // Verified on the live site: Work's model trigger has a CSS-module WorkTrigger token.
-    // A missing WorkTrigger alone is NEVER Chat evidence.
     const triggers = [...composer.querySelectorAll('button[aria-haspopup="menu"]')];
-    if (triggers.some(el => [...el.classList].some(name => name.endsWith('_WorkTrigger')))) return remember('work', composer);
     const groups = [...document.querySelectorAll('[role="radiogroup"]')].filter(el =>
       el.getClientRects().length && !el.closest('[hidden], [data-message-author-role]'));
     const evidence = new Set();
@@ -43,6 +40,10 @@
       try { sessionStorage.removeItem('chatsprig:surface:' + location.pathname); } catch {}
       return 'unknown';
     }
+    // Existing Chat conversations have a Thinking effort pill. The Work pill
+    // carries WorkTrigger; inspect descendants because the wrapper can move.
+    const workTrigger = triggers.some(el => [el, ...el.querySelectorAll?.('*') || []].some(node =>
+      [...node.classList].some(name => name.endsWith('_WorkTrigger'))));
     // Existing conversations omit the surface radio group. Inspect the composer-owned
     // menu: Chat explicitly offers Latest; Work explicitly offers Fast mode.
     for (const trigger of triggers) {
@@ -54,6 +55,13 @@
       if ([...picker.querySelectorAll('[role="menuitemradio"]')].some(el =>
         /^(Latest|最新)$/i.test(el.textContent.trim()))) return remember('chat', composer);
       return 'unknown';
+    }
+    if (workTrigger) return remember('work', composer);
+    if (conversationPath(location.pathname) && triggers.some(el =>
+      el.getAttribute('aria-label') === 'Thinking effort' ||
+      el.getAttribute('aria-describedby') && /TriggerWrapper/.test(el.innerHTML) &&
+      /Thinking effort|Extra High|High|Medium|Low|極高|高|中|低/.test(el.textContent))) {
+      return remember('chat', composer);
     }
     // Retain positive evidence when its portal closes. A reload can reuse the same
     // conversation's verified surface; live Work evidence above always takes priority.
@@ -103,6 +111,77 @@
     if (!users.length || new Set(users).size !== users.length) return null;
     return { count: users.length, key: JSON.stringify(users) };
   }
+  const localRecords = new Map();
+  let pendingSend = null;
+  const storageKey = 'chatsprig:local-counts';
+  try {
+    for (const [path, records] of JSON.parse(sessionStorage.getItem(storageKey) || '[]')) {
+      if (Array.isArray(records)) localRecords.set(path, records);
+    }
+  } catch {}
+  function visibleUserIds() {
+    return [...document.querySelectorAll('main [data-message-author-role="user"]')]
+      .filter(visible).map(el => el.getAttribute('data-message-id') || el.closest('[data-turn-id]')?.getAttribute('data-turn-id'))
+      .filter(Boolean);
+  }
+  function assistantMarker() {
+    const entries = [...document.querySelectorAll('main [data-message-author-role="assistant"]')].filter(visible);
+    const entry = entries.at(-1);
+    const turn = entry?.closest('[data-testid^="conversation-turn-"]');
+    return { id: entry?.getAttribute('data-message-id') || '',
+      index: Number(/^conversation-turn-(\d+)$/.exec(turn?.getAttribute('data-testid') || '')?.[1] || 0) };
+  }
+  function localRecord() {
+    const path = location.pathname;
+    const ids = visibleUserIds();
+    const last = ids.at(-1) || '';
+    const assistant = assistantMarker();
+    const records = localRecords.get(path) || [];
+    let record = records.find(item => item.ids.at(-1) === last &&
+      (!assistant.id || item.assistantId === assistant.id || assistant.index > item.assistantIndex)) ||
+      records.find(item => item.anchor === last && item.count === 0 && item.assistantId === assistant.id);
+    if (!record) {
+      record = { anchor: last, ids: last ? [last] : [], count: 0,
+        assistantId: assistant.id, assistantIndex: assistant.index };
+      records.push(record);
+      localRecords.set(path, records);
+    } else if (assistant.index > record.assistantIndex) {
+      record.assistantId = assistant.id;
+      record.assistantIndex = assistant.index;
+    }
+    return record;
+  }
+  function getCountState() {
+    const history = getHistory();
+    if (history) return { count: history.count, cadence: history.count, key: history.key, complete: true };
+    const record = localRecord();
+    return { count: null, cadence: record.count,
+      key: location.pathname + ':' + record.anchor + ':' + record.assistantId, complete: false };
+  }
+  function beginSendObservation() {
+    if (getMode() !== 'chat' || pendingSend) return;
+    const record = localRecord();
+    pendingSend = { path: location.pathname, record, before: new Set(visibleUserIds()) };
+    setTimeout(() => { if (pendingSend?.record === record) pendingSend = null; }, 10000);
+  }
+  function checkSend() {
+    if (!pendingSend) return;
+    if (location.pathname !== pendingSend.path &&
+        !(pendingSend.path === '/' && conversationPath(location.pathname))) {
+      pendingSend = null;
+      window.dispatchEvent(new Event('cgpt-helper-count-change'));
+      return;
+    }
+    const added = visibleUserIds().filter(id => !pendingSend.before.has(id));
+    if (!added.length) return;
+    const { record } = pendingSend;
+    pendingSend = null;
+    record.count++;
+    record.ids.push(added.at(-1));
+    record.ids = record.ids.slice(-20);
+    try { sessionStorage.setItem(storageKey, JSON.stringify([...localRecords])); } catch {}
+    window.dispatchEvent(new Event('cgpt-helper-count-change'));
+  }
   let mode = getMode();
   let revision = 0;
   function refreshMode() {
@@ -114,8 +193,9 @@
     }
     return mode;
   }
-  globalThis.cgptChatContext = { getMode: refreshMode, getHistory, get revision() { refreshMode(); return revision; } };
-  new MutationObserver(refreshMode).observe(document.documentElement, {
+  globalThis.cgptChatContext = { getMode: refreshMode, getHistory, getCountState, beginSendObservation,
+    get revision() { refreshMode(); return revision; } };
+  new MutationObserver(() => { refreshMode(); if (pendingSend) checkSend(); }).observe(document.documentElement, {
     childList: true, subtree: true, characterData: true, attributes: true,
     attributeFilter: ['aria-selected', 'aria-checked', 'aria-pressed', 'aria-label', 'aria-controls', 'data-tpp-toggle-value', 'aria-hidden', 'hidden', 'class', 'style']
   });

@@ -11,6 +11,7 @@ const node = (attrs = {}, textContent = '') => ({
 });
 function harness({ hostname = 'chatgpt.com', pathname = '/', busy = false } = {}) {
   let observe;
+  const events = [];
   const groups = [], turns = [], containers = [], triggers = [];
   const composer = { querySelectorAll: () => triggers };
   const menus = new Map(), cache = new Map();
@@ -22,12 +23,13 @@ function harness({ hostname = 'chatgpt.com', pathname = '/', busy = false } = {}
       return turns;
     }
   };
-  const context = vm.createContext({ location: { hostname, pathname }, Event: class {},
+  const context = vm.createContext({ location: { hostname, pathname }, Event: class { constructor(type) { this.type = type; } },
     document: { documentElement: {},
       querySelector(selector) { return selector === 'main' ? main : selector.startsWith('form') ? composer : turns[0]?.entries[0] || null; },
-      querySelectorAll() { return groups; }, getElementById: id => menus.get(id) },
+      querySelectorAll(selector) { return selector.includes('main [data-message-author-role=') ?
+        turns.flatMap(turn => turn.entries).filter(entry => selector.includes(`"${entry.attrs['data-message-author-role']}"`)) : groups; }, getElementById: id => menus.get(id) },
     sessionStorage: { setItem: (k,v) => cache.set(k,v), getItem: k => cache.get(k), removeItem: k => cache.delete(k) },
-    window: { dispatchEvent() {} }, MutationObserver: class { constructor(fn) { observe = fn; } observe() {} }
+    window: { dispatchEvent(event) { events.push(event.type); } }, setTimeout() {}, MutationObserver: class { constructor(fn) { observe = fn; } observe() {} }
   });
   vm.runInContext(source, context);
   function group(mode) {
@@ -44,7 +46,7 @@ function harness({ hostname = 'chatgpt.com', pathname = '/', busy = false } = {}
     result.contains = el => result.entries.includes(el);
     turns.push(result); return result;
   }
-  return { api: context.cgptChatContext, group, turn, turns, containers, triggers, menus, cache, location: context.location };
+  return { api: context.cgptChatContext, group, turn, turns, containers, triggers, menus, cache, location: context.location, observe, events };
 }
 test('mode requires visible paired controls and an explicit, unambiguous selection', () => {
   const h = harness(); assert.equal(h.api.getMode(), 'unknown');
@@ -106,4 +108,23 @@ test('verified composer menu identifies existing chats, survives portal close an
 test('unselected surface controls do not reuse earlier Chat evidence', () => {
   const h = harness(); const group = h.group('chat'); assert.equal(h.api.getMode(), 'chat');
   group.select('none'); assert.equal(h.api.getMode(), 'unknown');
+});
+test('explicit Chat selection wins over a WorkTrigger token', () => {
+  const h = harness(); h.group('chat');
+  const trigger = node(); trigger.classList = ['prefix_WorkTrigger'];
+  h.triggers.push(trigger);
+  assert.equal(h.api.getMode(), 'chat');
+});
+test('incomplete history keeps unknown total and advances local cadence only after a new user turn', () => {
+  const h = harness({ pathname: '/c/old' }); h.group('chat'); h.turn(9, 'user', 'old');
+  assert.equal(h.api.getCountState().count, null);
+  assert.equal(h.api.getCountState().cadence, 0);
+  h.api.beginSendObservation(); h.observe();
+  assert.equal(h.api.getCountState().cadence, 0);
+  h.turn(10, 'user', 'new'); h.observe();
+  assert.equal(h.api.getCountState().count, null);
+  assert.equal(h.api.getCountState().cadence, 1);
+  assert.ok(h.events.includes('cgpt-helper-count-change'));
+  h.turns.splice(1); h.turn(10, 'user', 'other-branch');
+  assert.equal(h.api.getCountState().cadence, 0);
 });

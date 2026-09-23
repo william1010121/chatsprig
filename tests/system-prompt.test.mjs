@@ -31,7 +31,9 @@ async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡
     location, HTMLTextAreaElement: TextArea, Event: class {},
     cgptLoadSettings: async () => ({ appendSystemPrompt: enabled, systemPrompt: prompt, systemPromptInterval: interval }),
     chrome: { storage: { onChanged: { addListener(fn) { change = fn; } } } },
-    cgptChatContext: { getMode: () => mode, getHistory: () => complete ? { count, key: `${branch}:${count}` } : null, get revision() { return revision; } },
+    cgptChatContext: { getMode: () => mode,
+      getCountState: () => ({ count: complete ? count : null, cadence: count, key: `${branch}:${complete ? count : 'local'}`, complete }),
+      beginSendObservation() {}, get revision() { return revision; } },
     window: { addEventListener(type, fn) { listeners[type] = fn; } },
     setTimeout(fn) { timers.push(fn); },
     document: { querySelector(selector) {
@@ -62,8 +64,8 @@ test('first click, Enter and form submit prepend multiline instructions, then se
     assert.equal(h.sent[1], '第二個問題');
   }
 });
-test('disabled, empty instructions and existing or loading conversations remain unchanged', async () => {
-  for (const options of [{ enabled: false }, { prompt: '  ' }, { history: true }, { path: '/c/existing' }, { gemini: true, path: '/app/existing' }]) {
+test('disabled, empty instructions and already counted conversations remain unchanged', async () => {
+  for (const options of [{ enabled: false }, { prompt: '  ' }, { history: true }, { gemini: true, path: '/app/existing' }]) {
     const h = await harness(options);
     h.button.click(); h.flush();
     assert.deepEqual(h.sent, ['第一個問題']);
@@ -136,13 +138,13 @@ test('interval changes recalculate from the conversation start; failed attempts 
   h.setCount(4); h.input.value = 'next'; h.button.click(); h.flush();
   assert.equal(h.sent.at(-1), 'next');
 });
-test('invalid synced intervals and incomplete history do not append', async () => {
+test('invalid synced intervals do not append; incomplete history starts local cadence', async () => {
   for (const interval of [-1, 0.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1, '3']) {
     const h = await harness({ interval }); h.button.click(); h.flush();
     assert.deepEqual(h.sent, ['第一個問題']);
   }
   const h = await harness({ interval: 1, complete: false }); h.button.click(); h.flush();
-  assert.deepEqual(h.sent, ['第一個問題']);
+  assert.deepEqual(h.sent, ['使用繁體中文\n保持簡潔\n\n第一個問題']);
 });
 test('cancelling a switched-mode send preserves user edits made after insertion', async () => {
   const h = await harness(); h.button.click(); h.input.value += ' edited';

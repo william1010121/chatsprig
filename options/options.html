@@ -140,7 +140,7 @@
         <span>Repeat every k user messages</span>
         <input type="number" data-key="systemPromptInterval" min="0" max="9007199254740991" step="1" required aria-describedby="system-prompt-interval-hint">
       </label>
-      <p class="hint" id="system-prompt-interval-hint">0 = first message only; 1 = every message; 3 = messages 1, 4, 7, 10… AI responses do not count. Changing k recalculates from the start of the current conversation.</p>
+      <p class="hint" id="system-prompt-interval-hint">0 = first message only; 1 = every message; 3 = messages 1, 4, 7, 10… AI responses do not count. When a long conversation's full history is unavailable, the badge shows — and the next successfully sent message starts a local 1, 4, 7… schedule. Failed sends do not count. Changing k recalculates using the available count.</p>
       <label for="system-prompt">Prompt text</label>
       <textarea id="system-prompt" data-key="systemPrompt" rows="8" aria-describedby="system-prompt-hint" placeholder="Enter your preferred style and instructions…"></textarea>
     </section>

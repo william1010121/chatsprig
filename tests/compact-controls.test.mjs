@@ -6,13 +6,13 @@ const source = fs.readFileSync(new URL('../content/compact-view.js', import.meta
 async function harness() {
   const elements = [], saved = [], events = {};
   const classes = new Set();
-  let mode = 'chat', change;
+  let mode = 'chat', count = 0, change;
   function element() {
     const el = { children: [], attrs: {}, listeners: {}, hidden: false,
       append(...children) { this.children.push(...children); }, appendChild(child) { this.append(child); },
       setAttribute(key, value) { this.attrs[key] = value; },
       addEventListener(type, callback) { this.listeners[type] = callback; },
-      querySelector(selector) { return this.children.flatMap(child => [child, ...child.children]).find(child => selector === `#${child.id}`) || null; }
+      querySelector(selector) { return this.children.flatMap(child => [child, ...child.children]).find(child => selector === `#${child.id}` || selector === `.${child.className}`) || null; }
     };
     elements.push(el); return el;
   }
@@ -21,7 +21,8 @@ async function harness() {
     if (enabled) classes.add(name); else classes.delete(name);
   } };
   vm.runInNewContext(source, {
-    cgptChatContext: { getMode: () => mode },
+    location: { pathname: '/' },
+    cgptChatContext: { getMode: () => mode, getCountState: () => ({ count }) },
     cgptLoadSettings: async () => ({ compactView: false, compactJoinParagraphs: true, appendSystemPrompt: true, systemPromptInterval: 3 }),
     chrome: { storage: { sync: { set: async value => saved.push(value) }, onChanged: { addListener(callback) { change = callback; } } } },
     document: { documentElement, body: {}, createElement: element,
@@ -34,6 +35,7 @@ async function harness() {
     prompt: elements.find(el => el.id === 'cgpt-helper-system-prompt-toggle'),
     compact: elements.find(el => el.id === 'cgpt-helper-compact-toggle'),
     mode(value) { mode = value; events['cgpt-helper-mode-change'](); },
+    count(value) { count = value; events['cgpt-helper-count-change'](); },
     change(value) { change(value, 'sync'); } };
 }
 test('prompt icon hides in Work and unknown modes while Compact remains available', async () => {

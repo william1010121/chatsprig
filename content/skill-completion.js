@@ -12,6 +12,10 @@
   let composing = false;
   let host;
   let list;
+  let choices = [];
+  let inserting = false;
+  let lastTiming = null;
+  let lastUpdateTiming = null;
 
   function composer(target) {
     const el = target?.closest?.(composerSelector);
@@ -38,19 +42,19 @@
     const match = beforeRange.toString().match(/(?:^|\s)\/\/([^\r\n]{0,80})$/u);
     if (!match) return null;
     const token = '//' + match[1];
-    const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    for (let index = nodes.length - 1; index >= 0; index--) {
-      const node = nodes[index];
-      const range = document.createRange();
-      range.setStart(node, 0);
-      range.setEnd(caret.startContainer, caret.startOffset);
-      const length = range.toString().length;
-      const offset = length - token.length;
-      if (offset < 0 || offset > node.length) continue;
-      range.setStart(node, offset);
-      if (range.toString() === token) return { input, query: match[1], token, range };
+    const root = paragraph && input.contains(paragraph) ? paragraph : input;
+    const target = beforeRange.toString().length - token.length;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let offset = 0;
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (target <= offset + node.length) {
+        const range = caret.cloneRange();
+        range.setStart(node, target - offset);
+        if (range.toString() === token) return { input, query: match[1], token, range };
+        break;
+      }
+      offset += node.length;
     }
     return null;
   }
@@ -89,12 +93,20 @@
   }
   function close() {
     active = null;
+    choices = [];
     if (host) host.hidden = true;
+  }
+  function select(index) {
+    selectedIndex = index;
+    if (!list) return;
+    for (const button of list.querySelectorAll('button[data-index]')) {
+      button.setAttribute('aria-selected', String(Number(button.dataset.index) === index));
+    }
   }
   function render() {
     if (!active) return;
     ensureMenu();
-    const choices = matches(active.query);
+    choices = matches(active.query);
     selectedIndex = Math.min(selectedIndex, Math.max(0, choices.length - 1));
     list.replaceChildren();
     if (!choices.length) {
@@ -123,32 +135,63 @@
     host.style.top = `${Math.max(8, rect.top - height - 6)}px`;
   }
   function update() {
-    if (composing) return;
+    if (composing || inserting) return;
+    const start = performance.now();
     const input = composer(document.activeElement);
     const next = input && triggerFor(input);
+    const triggerMs = performance.now() - start;
     if (!next) { close(); return; }
-    if (!active || active.input !== next.input || active.token !== next.token) selectedIndex = 0;
+    const changed = !active || active.input !== next.input || active.query !== next.query;
+    if (changed) selectedIndex = 0;
     active = next;
-    render();
+    if (changed) render();
+    lastUpdateTiming = { triggerMs, renderMs: performance.now() - start - triggerMs };
   }
   function choose(index) {
     if (!active) return;
-    const skill = matches(active.query)[index];
+    const start = performance.now();
+    const skill = choices[index];
     if (!skill) { close(); return; }
     const { input } = active;
     if (!input.isConnected) { close(); return; }
-    input.focus({ preventScroll: true });
-    if (input instanceof HTMLTextAreaElement) {
-      input.setRangeText(skill.content, active.start, active.end, 'end');
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    } else {
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(active.range);
-      // Native editing updates ProseMirror and Quill state, unlike direct DOM replacement.
-      document.execCommand('insertText', false, skill.content);
-    }
+    const trigger = active;
     close();
+    const menuMs = performance.now() - start;
+    inserting = true;
+    let placementMs = 0;
+    let insertionMs = 0;
+    try {
+      const placementStart = performance.now();
+      input.focus({ preventScroll: true });
+      if (input instanceof HTMLTextAreaElement) {
+        input.setSelectionRange(trigger.start, trigger.end);
+      } else {
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(trigger.range);
+      }
+      placementMs = performance.now() - placementStart;
+      const insertionStart = performance.now();
+      if (input instanceof HTMLTextAreaElement) {
+        input.setRangeText(skill.content, trigger.start, trigger.end, 'end');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        // Native editing updates ProseMirror and Quill and preserves undo.
+        document.execCommand('insertText', false, skill.content);
+      }
+      insertionMs = performance.now() - insertionStart;
+    } finally {
+      inserting = false;
+      lastTiming = { menuMs, placementMs, insertionMs, totalMs: performance.now() - start,
+        contentLength: skill.content.length, ...lastUpdateTiming };
+      const insertedAt = performance.now();
+      queueMicrotask(() => {
+        if (lastTiming?.contentLength === skill.content.length) {
+          lastTiming.postInsertMs = performance.now() - insertedAt;
+          lastTiming.settledMs = performance.now() - start;
+        }
+      });
+    }
   }
   window.addEventListener('keydown', event => {
     if (!active || event.isComposing || event.keyCode === 229 || !composer(event.target)) return;
@@ -157,9 +200,9 @@
     }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault(); event.stopImmediatePropagation();
-      const count = matches(active.query).length;
+      const count = choices.length;
       if (count) selectedIndex = (selectedIndex + (event.key === 'ArrowDown' ? 1 : -1) + count) % count;
-      render();
+      select(selectedIndex);
       return;
     }
     if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
@@ -168,10 +211,10 @@
     }
   }, true);
   document.addEventListener('input', event => {
-    if (composer(event.target)) update();
+    if (!inserting && composer(event.target)) update();
   }, true);
   document.addEventListener('selectionchange', () => {
-    if (active && document.activeElement === active.input) update();
+    if (!inserting && active && document.activeElement === active.input) update();
   });
   document.addEventListener('compositionstart', event => {
     if (composer(event.target)) { composing = true; close(); }
@@ -197,5 +240,5 @@
     }
     render();
   });
-  globalThis.cgptSkillCompletion = { isMenuOpen: () => !!active };
+  globalThis.cgptSkillCompletion = { isMenuOpen: () => !!active, getLastTiming: () => lastTiming };
 })();

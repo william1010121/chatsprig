@@ -23,6 +23,14 @@
       color: var(--text-secondary, #888); cursor: pointer;
     }
     #${PROMPT_ID}[hidden] { display: none; }
+    #${PROMPT_ID} { position: relative; }
+    #${PROMPT_ID} .cgpt-helper-prompt-count {
+      position: absolute; top: -6px; left: -7px; min-width: 13px; height: 13px;
+      box-sizing: border-box; padding: 0 2px; border-radius: 7px;
+      background: var(--bg-primary, #fff); color: var(--text-secondary, #666);
+      border: 1px solid currentColor; font: 9px/11px system-ui, sans-serif;
+      text-align: center; pointer-events: none;
+    }
     #${BUTTON_ID} { width: auto; gap: 6px; padding-inline: 9px; }
     #${BUTTON_ID}::after {
       content: "Compact view"; font: 12px/1.2 system-ui, sans-serif;
@@ -81,8 +89,14 @@
     if (!toggle) return;
     const hidden = globalThis.cgptChatContext?.getMode() !== 'chat';
     if (toggle.hidden !== hidden) toggle.hidden = hidden;
+    if (!hidden) {
+      const count = globalThis.cgptChatContext?.getCountState().count;
+      const badge = toggle.querySelector('.cgpt-helper-prompt-count');
+      if (badge) badge.textContent = count === null ? '—' : String(count);
+    }
   }
   window.addEventListener('cgpt-helper-mode-change', updatePromptVisibility);
+  window.addEventListener('cgpt-helper-count-change', updatePromptVisibility);
   function render() {
     document.documentElement.classList.toggle(CLASS, enabled);
     document.documentElement.classList.toggle(JOIN_CLASS, joinParagraphs);
@@ -136,7 +150,7 @@
     promptToggle.id = PROMPT_ID;
     promptToggle.type = 'button';
     promptToggle.hidden = true;
-    promptToggle.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M11 3H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-6M7 9h3m-3 3h6m-6 3h4M15 2v6m-3-3h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    promptToggle.innerHTML = '<span class="cgpt-helper-prompt-count" aria-hidden="true">—</span><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M11 3H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-6M7 9h3m-3 3h6m-6 3h4M15 2v6m-3-3h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     promptToggle.setAttribute('aria-label', 'Append system prompt');
     promptToggle.addEventListener('click', async (event) => {
       event.stopPropagation();
@@ -161,7 +175,14 @@
   }
 
   // The picker is a short-lived React portal; remount only when DOM children change.
-  const observer = new MutationObserver(() => { mount(); updatePromptVisibility(); });
+  let lastPath = location.pathname;
+  const observer = new MutationObserver(() => {
+    mount();
+    if (lastPath !== location.pathname) {
+      lastPath = location.pathname;
+      updatePromptVisibility();
+    }
+  });
   observer.observe(document.body, { childList: true, subtree: true });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') return;

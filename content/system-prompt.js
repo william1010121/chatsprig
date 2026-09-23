@@ -19,11 +19,10 @@
 
   function eligibleHistory() {
     if (context.getMode() !== 'chat') return null;
-    const history = context.getHistory();
-    if (!history) return null;
+    const history = context.getCountState();
     const k = settings.systemPromptInterval ?? 0;
     if (!Number.isSafeInteger(k) || k < 0) return null;
-    return history.count === 0 || (k > 0 && history.count % k === 0) ? history : null;
+    return history.cadence === 0 || (k > 0 && history.cadence % k === 0) ? history : null;
   }
   function readText(input) {
     if (input instanceof HTMLTextAreaElement) return input.value;
@@ -104,9 +103,16 @@
     if (pending) { event.preventDefault(); event.stopImmediatePropagation(); return; }
     const prompt = typeof settings.systemPrompt === 'string' ? settings.systemPrompt.trim() : '';
     const history = eligibleHistory();
-    if (settings.appendSystemPrompt !== true || !prompt || !history) return;
+    if (settings.appendSystemPrompt !== true || !prompt || !history) {
+      context.beginSendObservation();
+      return;
+    }
     const draft = readText(input);
-    if (!draft.trim() || normalize(draft).startsWith(normalize(prompt) + '\n\n')) return;
+    if (!draft.trim()) return;
+    if (normalize(draft).startsWith(normalize(prompt) + '\n\n')) {
+      context.beginSendObservation();
+      return;
+    }
     const button = document.querySelector(sendSelector);
     if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
     event.preventDefault();
@@ -124,7 +130,7 @@
       const current = eligibleHistory();
       const sameSettings = settings.appendSystemPrompt === true && settings.systemPrompt?.trim() === prompt;
       if (location.href !== url || !input.isConnected || context.revision !== revision || !sameSettings ||
-          !current || current.count !== history.count || current.key !== history.key || normalize(readText(input)) !== expected) {
+          !current || current.cadence !== history.cadence || current.key !== history.key || normalize(readText(input)) !== expected) {
         // Remove only our untouched insertion. Never overwrite a subsequently edited draft.
         if (input.isConnected && normalize(readText(input)) === expected) {
           removePrefix(input, draft);
@@ -133,6 +139,7 @@
       }
       const send = document.querySelector(sendSelector);
       if (!send || send.disabled || send.getAttribute('aria-disabled') === 'true') return;
+      context.beginSendObservation();
       replaying = true;
       try { send.click(); } finally { replaying = false; }
     }, 100);

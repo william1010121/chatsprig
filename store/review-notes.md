@@ -1,6 +1,6 @@
 # ChatSprig submission notes
 
-- Version: 2.3.0 draft
+- Version: 2.3.1 draft
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
@@ -42,7 +42,7 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: Version 2.3.0 has not been submitted. Version 2.2.0 was submitted September 22, 2026 and had automatic publishing after approval enabled.
+- Status: Version 2.3.1 has not been submitted. Version 2.2.0 was submitted September 22, 2026 and had automatic publishing after approval enabled.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.
