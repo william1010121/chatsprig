@@ -48,6 +48,7 @@
     return (
       document.querySelector('#prompt-textarea') ||
       document.querySelector('[data-testid="prompt-textarea"]') ||
+      document.querySelector('[data-composer-markdown][contenteditable="true"]') ||
       document.querySelector('textarea[placeholder]') ||
       document.querySelector('main textarea') ||
       document.querySelector('div[contenteditable="true"][id*="prompt"]') ||
@@ -131,7 +132,7 @@
     };
     return [...el.childNodes].map(read).join('\n');
   }
-  const generating = () => !!document.querySelector('[data-testid="stop-button"], button[aria-label="Stop answering"], button[aria-label="停止產生"], button[aria-label="停止生成"]');
+  const generating = () => !!document.querySelector('[data-testid="stop-button"], button[aria-label="Stop answering"], button[aria-label="停止產生"], button[aria-label="停止生成"], form[data-thread-find-composer] button:is([aria-label="Stop"], [aria-label="停止"])');
 
   async function fillSelection(message) {
     if (handled.has(message.id) || activeFill) return { message: 'Selection already handled or sidebar busy.' };
@@ -178,7 +179,7 @@
       const sendDeadline = Date.now() + 3000;
       while (!operation.cancelled && Date.now() < sendDeadline) {
         if (!input.isConnected || normalize(inputText(input)) !== normalize(expected) || generating()) break;
-        const button = document.querySelector('[data-testid="send-button"], #composer-submit-button');
+        const button = document.querySelector('[data-testid="send-button"], #composer-submit-button, form[data-thread-find-composer] button[type="submit"]');
         if (button && !button.disabled && button.getAttribute('aria-disabled') !== 'true' && button.getClientRects().length) {
           button.click();
           return { message: 'Selection sent.' };

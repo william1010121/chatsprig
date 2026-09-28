@@ -4,6 +4,7 @@
   if (window.top !== window.self || globalThis.cgptSidebarSelectionMounted) return;
   globalThis.cgptSidebarSelectionMounted = true;
   const BUTTON_ID = 'cgpt-helper-ask-sidebar';
+  const MESSAGE = '[data-message-author-role], [data-chatgpt-search-unit-key]';
   let selectedText = '';
   let dismissingSelection = false;
 
@@ -16,8 +17,8 @@
     const anchor = selection.anchorNode?.parentElement;
     const focus = selection.focusNode?.parentElement;
     if (anchor?.closest('[contenteditable="true"], textarea, input') ||
-        !anchor?.closest('[data-message-author-role]') ||
-        !focus?.closest('[data-message-author-role]')) {
+        !anchor?.closest(MESSAGE) ||
+        !focus?.closest(MESSAGE)) {
       return;
     }
     selectedText = globalThis.cgptGetSelectedLatex?.() ?? selection.toString();
@@ -30,8 +31,13 @@
       /^(Ask ChatGPT|詢問 ChatGPT|询问 ChatGPT|尋問 ChatGPT)$/.test(button.textContent.trim()));
     if (!ask) return;
     const toolbar = ask.parentElement;
-    if (!toolbar || ![...toolbar.querySelectorAll('button')].some((button) =>
-      /Share highlighted|Share selection|分享選取|分享所選|分享反白|分享选中|分享所选/.test(button.textContent))) return;
+    if (!toolbar) return;
+    // Older toolbars pair Ask with Share; newer ones float Ask alone outside the app root.
+    const shared = [...toolbar.querySelectorAll('button')].some((button) =>
+      /Share highlighted|Share selection|分享選取|分享所選|分享反白|分享选中|分享所选/.test(button.textContent));
+    const floating = () => !toolbar.closest('#root, main, form') && !!toolbar.parentElement &&
+      getComputedStyle(toolbar.parentElement).position === 'fixed';
+    if (!shared && !floating()) return;
     const button = document.createElement('button');
     button.id = BUTTON_ID;
     button.type = 'button';

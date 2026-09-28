@@ -3,7 +3,7 @@
   'use strict';
   if (!/^(chatgpt\.com|chat\.openai\.com|gemini\.google\.com)$/.test(location.hostname)) return;
 
-  const composerSelector = '#prompt-textarea, [data-testid="prompt-textarea"], .ql-editor[contenteditable="true"][role="textbox"]';
+  const composerSelector = '#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown][contenteditable="true"], .ql-editor[contenteditable="true"][role="textbox"]';
   const name = 'chatsprig-skills';
   let skills = [];
   let systemPrompt = '';

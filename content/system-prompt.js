@@ -4,8 +4,8 @@
   if (!/^(chatgpt\.com|chat\.openai\.com)$/.test(location.hostname)) return;
   const context = globalThis.cgptChatContext;
   if (!context) return;
-  const inputSelector = '#prompt-textarea, [data-testid="prompt-textarea"]';
-  const sendSelector = '[data-testid="send-button"], #composer-submit-button';
+  const inputSelector = '#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown][contenteditable="true"]';
+  const sendSelector = '[data-testid="send-button"], #composer-submit-button, form[data-thread-find-composer] button[type="submit"]';
   let settings = {};
   let pending = false;
   let replaying = false;

@@ -6,7 +6,9 @@
   const PROMPT_ID = 'cgpt-helper-system-prompt-toggle';
   const CLASS = 'cgpt-helper-compact';
   const JOIN_CLASS = 'cgpt-helper-compact-join-paragraphs';
-  const PICKER = '[data-testid="composer-intelligence-picker-content"]';
+  const PICKER = '[data-testid="composer-intelligence-picker-content"], [role="menu"]:has(> [data-model-picker-view])';
+  // Older builds nest .markdown in the author-role wrapper; newer ones tag the markdown root.
+  const MARKDOWN = ':is([data-message-author-role="assistant"] .markdown, [data-markdown-text-style="assistant-message"])';
   if (document.getElementById(STYLE_ID)) return;
 
   const style = document.createElement('style');
@@ -43,28 +45,28 @@
       color: #8bdeb4; background: #8bdeb41c; border-color: #8bdeb455;
     }
     #${BUTTON_ID}:focus-visible, #${PROMPT_ID}:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-    html.${CLASS} [data-message-author-role="assistant"] .markdown :is(p, ul, ol, blockquote, pre, table) {
+    html.${CLASS} ${MARKDOWN} :is(p, ul, ol, blockquote, pre, table) {
       margin-top: 8px !important; margin-bottom: 8px !important;
     }
-    html.${CLASS} [data-message-author-role="assistant"] .markdown li {
+    html.${CLASS} ${MARKDOWN} li {
       margin-top: 3px !important; margin-bottom: 3px !important;
     }
-    html.${CLASS} [data-message-author-role="assistant"] .markdown li > p {
+    html.${CLASS} ${MARKDOWN} li > p {
       margin-top: 0 !important; margin-bottom: 0 !important;
     }
-    html.${CLASS} [data-message-author-role="assistant"] .markdown :is(h1,h2,h3,h4) {
+    html.${CLASS} ${MARKDOWN} :is(h1,h2,h3,h4) {
       margin-top: 16px !important; margin-bottom: 8px !important;
     }
-    html.${CLASS} [data-message-author-role="assistant"] .markdown :is(p,li,blockquote) {
+    html.${CLASS} ${MARKDOWN} :is(p,li,blockquote) {
       line-height: 1.65 !important;
     }
-    html.${CLASS} [data-message-author-role="assistant"] .markdown hr { margin: 8px 0 !important; }
+    html.${CLASS} ${MARKDOWN} hr { margin: 8px 0 !important; }
     /* Join adjacent prose visually; leave React's message DOM untouched. */
-    html.${CLASS}.${JOIN_CLASS} [data-message-author-role="assistant"] .markdown > :is(
+    html.${CLASS}.${JOIN_CLASS} ${MARKDOWN} > :is(
       p:not(:has(.katex-display, math[display="block"], img, br)):has(+ p:not(:has(.katex-display, math[display="block"], img, br))),
       p:not(:has(.katex-display, math[display="block"], img, br)) + p:not(:has(.katex-display, math[display="block"], img, br))
     ) { display: inline !important; }
-    html.${CLASS}.${JOIN_CLASS} [data-message-author-role="assistant"] .markdown >
+    html.${CLASS}.${JOIN_CLASS} ${MARKDOWN} >
       p:not(:has(.katex-display, math[display="block"], img, br)):has(+ p:not(:has(.katex-display, math[display="block"], img, br)))::after {
       content: " "; white-space: pre;
     }
@@ -74,6 +76,9 @@
     }
     html.${CLASS} [data-turn-id] [data-conversation-screenshot-content] {
       max-width: none !important;
+    }
+    html.${CLASS} [data-thread-user-message-navigation-content] {
+      max-width: none !important; margin-inline: 0 !important; padding-inline: 12% !important;
     }
   `;
   document.documentElement.appendChild(style);

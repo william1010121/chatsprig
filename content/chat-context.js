@@ -15,7 +15,7 @@
   }
   function getMode() {
     if (!isChatgpt) return 'unknown';
-    const composer = document.querySelector('form[data-type="unified-composer"]');
+    const composer = document.querySelector('form[data-type="unified-composer"], form[data-thread-find-composer]');
     if (!composer) return 'unknown';
     const triggers = [...composer.querySelectorAll('button[aria-haspopup="menu"]')];
     const groups = [...document.querySelectorAll('[role="radiogroup"]')].filter(el =>
@@ -39,6 +39,15 @@
       known = null;
       try { sessionStorage.removeItem('chatsprig:surface:' + location.pathname); } catch {}
       return 'unknown';
+    }
+    // Newer layouts: new chats show a pressed Chat/Work button; every Chat
+    // composer carries data-chatgpt-composer, which Work composers omit.
+    if (composer.hasAttribute?.('data-thread-find-composer')) {
+      const pressed = [...document.querySelectorAll('[role="group"][aria-label="Composer mode"] button[aria-pressed="true"]')]
+        .filter(visible).map(el => el.textContent.trim());
+      if (pressed.length === 1 && /^(Chat|聊天|對話|对话)$/i.test(pressed[0])) return remember('chat', composer);
+      if (pressed.length === 1 && /^(Work|工作)$/i.test(pressed[0])) return remember('work', composer);
+      return remember(composer.hasAttribute('data-chatgpt-composer') ? 'chat' : 'work', composer);
     }
     // Existing Chat conversations have a Thinking effort pill. The Work pill
     // carries WorkTrigger; inspect descendants because the wrapper can move.
@@ -78,11 +87,32 @@
     }
     return 'unknown';
   }
+  // Newer layouts key each turn and tag its user/assistant units with message ids.
+  function keyedHistory(turns) {
+    const users = [];
+    for (const [i, turn] of turns.entries()) {
+      const key = turn.querySelector('[data-content-search-turn-key]')?.getAttribute('data-content-search-turn-key') || '';
+      if (Number(/-turn-(\d+)$/.exec(key)?.[1] ?? NaN) !== i) return null;
+      const units = [...turn.querySelectorAll('[data-chatgpt-search-unit-key]')].filter(visible);
+      if (!units.length) return null;
+      const userUnits = units.filter(el => el.getAttribute('data-chatgpt-search-unit-key').endsWith(':user'));
+      if (userUnits.length > 1) return null;
+      if (userUnits.length) {
+        const id = userUnits[0].getAttribute('data-chatgpt-search-message-ids')?.split(' ')[0] || turn.getAttribute('data-turn-key');
+        if (!id) return null;
+        users.push(id);
+      }
+    }
+    if (!users.length || new Set(users).size !== users.length) return null;
+    return { count: users.length, key: JSON.stringify(users) };
+  }
   function getHistory() {
     const main = document.querySelector('main');
     if (!main || main.querySelector('[aria-busy="true"]')) return null;
     // Hidden alternative branches do not belong to the current conversation.
     const turns = [...main.querySelectorAll('[data-testid^="conversation-turn-"]')].filter(visible);
+    const keyed = turns.length ? [] : [...main.querySelectorAll('[data-turn-key]')].filter(visible);
+    if (keyed.length) return keyedHistory(keyed);
     const containers = [...main.querySelectorAll('[data-turn-id-container]')].filter(visible);
     if (containers.some(el => el.getAttribute('data-turn-id-container') !== 'client-created-root' &&
         !el.getAttribute('data-testid')?.startsWith('conversation-turn-') &&
@@ -119,14 +149,22 @@
       if (Array.isArray(records)) localRecords.set(path, records);
     }
   } catch {}
+  const unitId = el => el.getAttribute('data-chatgpt-search-message-ids')?.split(' ')[0];
   function visibleUserIds() {
-    return [...document.querySelectorAll('main [data-message-author-role="user"]')]
+    const ids = [...document.querySelectorAll('main [data-message-author-role="user"]')]
       .filter(visible).map(el => el.getAttribute('data-message-id') || el.closest('[data-turn-id]')?.getAttribute('data-turn-id'))
       .filter(Boolean);
+    if (ids.length) return ids;
+    return [...document.querySelectorAll('main [data-chatgpt-search-unit-key$=":user"]')].filter(visible).map(unitId).filter(Boolean);
   }
   function assistantMarker() {
     const entries = [...document.querySelectorAll('main [data-message-author-role="assistant"]')].filter(visible);
     const entry = entries.at(-1);
+    if (!entry) {
+      const unit = [...document.querySelectorAll('main [data-chatgpt-search-unit-key$=":assistant"]')].filter(visible).at(-1);
+      const index = /-turn-(\d+):/.exec(unit?.getAttribute('data-chatgpt-search-unit-key') || '')?.[1];
+      if (unit && index !== undefined) return { id: unitId(unit) || '', index: Number(index) + 1 };
+    }
     const turn = entry?.closest('[data-testid^="conversation-turn-"]');
     return { id: entry?.getAttribute('data-message-id') || '',
       index: Number(/^conversation-turn-(\d+)$/.exec(turn?.getAttribute('data-testid') || '')?.[1] || 0) };
@@ -197,6 +235,6 @@
     get revision() { refreshMode(); return revision; } };
   new MutationObserver(() => { refreshMode(); if (pendingSend) checkSend(); }).observe(document.documentElement, {
     childList: true, subtree: true, characterData: true, attributes: true,
-    attributeFilter: ['aria-selected', 'aria-checked', 'aria-pressed', 'aria-label', 'aria-controls', 'data-tpp-toggle-value', 'aria-hidden', 'hidden', 'class', 'style']
+    attributeFilter: ['aria-selected', 'aria-checked', 'aria-pressed', 'aria-label', 'aria-controls', 'data-tpp-toggle-value', 'data-chatgpt-composer', 'aria-hidden', 'hidden', 'class', 'style']
   });
 })();

@@ -104,7 +104,7 @@ test('Ask in sidebar dismisses page-owned selection state before sending saved L
   let pageHighlight = true;
   let pageToolbar = true;
   const outsideEvents = [];
-  const anchor = { closest: (selector) => selector === '[data-message-author-role]' ? {} : null };
+  const anchor = { closest: (selector) => selector.includes('[data-message-author-role]') ? {} : null };
   const selection = { get isCollapsed() { return !selected; }, anchorNode: { parentElement: anchor }, focusNode: { parentElement: anchor }, toString: () => '公式 x²', removeAllRanges() { selected = false; } };
   const toolbar = { querySelectorAll: () => [{ textContent: 'Share highlighted' }], appendChild() {} };
   const window = { getSelection: () => selection };

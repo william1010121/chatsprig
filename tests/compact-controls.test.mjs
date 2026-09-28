@@ -60,5 +60,5 @@ test('joining paragraphs can be changed without disabling other compact spacing'
   assert.ok(h.classes.has('cgpt-helper-compact'));
   assert.ok(!h.classes.has('cgpt-helper-compact-join-paragraphs'));
   assert.match(h.style, /html\.cgpt-helper-compact\.cgpt-helper-compact-join-paragraphs/);
-  assert.match(h.style, /html\.cgpt-helper-compact \[data-message-author-role="assistant"\] \.markdown li/);
+  assert.match(h.style, /html\.cgpt-helper-compact :is\(\[data-message-author-role="assistant"\] \.markdown, \[data-markdown-text-style="assistant-message"\]\) li/);
 });

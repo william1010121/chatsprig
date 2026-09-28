@@ -1,6 +1,6 @@
 # ChatSprig submission notes
 
-- Version: 2.3.1
+- Version: 2.3.2
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
