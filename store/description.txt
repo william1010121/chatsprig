@@ -8,8 +8,9 @@ WHAT YOU CAN DO
 • Start a fresh temporary chat in the current service with Alt+N / Option+N.
 • Select message text on ChatGPT or Gemini and send it to that service’s sidebar.
 • Choose whether Ask in sidebar sends immediately or leaves a draft for editing.
-• Use Compact view on ChatGPT for more comfortable long-form reading.
+• Use Compact view on ChatGPT for more comfortable long-form reading, with an option to keep paragraph breaks.
 • Optionally prepend saved instructions in verified Chat mode and repeat them at a chosen interval.
+• Save text templates as skills, then type // in a ChatGPT or Gemini prompt to insert one as an editable draft.
 • Choose a preferred Gemini model for new temporary chats.
 • Copy supported mathematical expressions on ChatGPT pages as LaTeX source.
 • Use a floating launcher and customize overlay, focus, sidebar, and launcher behavior in Settings.
@@ -21,7 +22,7 @@ ACCOUNT AND COMPATIBILITY
 ChatSprig embeds the official ChatGPT and Gemini websites. Sign in to each service in a normal tab first if needed. The providers’ account, plan, usage, and temporary-chat retention rules apply. Chrome internal pages, the Chrome Web Store, some PDF viewers, and other restricted pages cannot display the overlay. Browser restrictions or service changes may affect loading and sign-in.
 
 PRIVACY AND COOKIE COMPATIBILITY
-There is no developer-operated analytics or conversation backend. Settings use Chrome Sync; messages are handled directly by OpenAI or Google.
+There is no developer-operated analytics or conversation backend. Settings use Chrome Sync, custom skills stay in this browser, and messages are handled directly by OpenAI or Google.
 
 Cross-site sign-in compatibility rewrites eligible ChatGPT cookies, including session cookies, to SameSite=None; Secure when enabled. This relaxes SameSite-based protection and can affect other ChatGPT tabs. Disabling it stops future rewrites but does not restore cookies already changed. Google cookies are not rewritten. ChatSprig removes frame-blocking response headers from service subframes to allow embedding. Browser cookie restrictions can still prevent sign-in.
 

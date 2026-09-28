@@ -1,6 +1,6 @@
 # ChatSprig Privacy Policy
 
-Effective date: September 16, 2026
+Effective date: September 28, 2026
 
 ChatSprig is an independent browser extension maintained by the GitHub developer account [william1010121](https://github.com/william1010121). It opens the ChatGPT or Gemini website inside supported web pages and provides shortcuts, layout controls, and LaTeX copying.
 

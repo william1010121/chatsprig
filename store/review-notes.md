@@ -1,10 +1,10 @@
 # ChatSprig submission notes
 
-- Version: 2.3.1 draft
+- Version: 2.3.1
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
-- Privacy policy: https://gist.github.com/william1010121/9a6d44e13a9d5cd3b10cf0744228c479
+- Privacy policy (dashboard): https://github.com/william1010121/chatsprig/blob/main/PRIVACY.md (mirror: https://gist.github.com/william1010121/9a6d44e13a9d5cd3b10cf0744228c479)
 
 ## Single purpose
 
@@ -15,7 +15,7 @@ Provide an in-page workspace for temporary ChatGPT and Gemini conversations, wit
 - storage: Store and sync user-selected overlay, launcher, shortcut behavior, LaTeX-copy, and cookie compatibility settings using chrome.storage.sync; store user-created text templates in chrome.storage.local.
 - cookies: Read and rewrite eligible chatgpt.com and chat.openai.com cookies to SameSite=None; Secure when cookie compatibility is enabled. This allows existing ChatGPT sign-in cookies to work in a cross-site iframe where browser policy permits. Cookie values stay in the browser and are not sent to the developer. Enabled by default; Settings can stop future rewrites but cannot undo earlier changes.
 - declarativeNetRequestWithHostAccess: Apply the packaged static rules.json rules to remove frame-blocking response headers from ChatGPT subframes and X-Frame-Options from Gemini subframes. Rules require granted host access to the listed service domains.
-- Host/content-script access: Content scripts on supported web pages provide the floating launcher, keyboard fallback, and overlay host. ChatGPT-specific scripts focus the prompt, hide its embedded sidebar, provide Compact view and optional saved instructions, and convert selected math when copying. Gemini-specific scripts verify temporary mode and the requested model. Access to the ChatGPT and Gemini hosts supports these user-facing features and frame compatibility. The surrounding page is not automatically sent to either service.
+- Host/content-script access: Content scripts on supported web pages provide the floating launcher, keyboard fallback, and overlay host. ChatGPT and Gemini scripts offer skill completion when the user types `//` in the prompt. ChatGPT-specific scripts focus the prompt, hide its embedded sidebar, provide Compact view and optional saved instructions, and convert selected math when copying. Gemini-specific scripts verify temporary mode and the requested model. Access to the ChatGPT and Gemini hosts supports these user-facing features and frame compatibility. The surrounding page is not automatically sent to either service.
 
 ## Remote content disclosure
 
@@ -42,7 +42,7 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: Version 2.3.1 has not been submitted. Version 2.2.0 was submitted September 22, 2026 and had automatic publishing after approval enabled.
+- Status: Version 2.3.1 pending review; submitted September 28, 2026. Automatic publishing after approval is enabled. Version 2.2.0 is published.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.
