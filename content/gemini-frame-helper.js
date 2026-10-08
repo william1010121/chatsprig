@@ -5,9 +5,12 @@
   const MESSAGE_SOURCE = 'cgpt-helper';
   let ready = false;
   let initialized = false;
-  let focusRequested = false;
+  let focusRequest = null;
+  let chatWindow = null;
   let settings = {};
-  const temporaryReady = () => ready && !!document.querySelector('chat-window.is-temporary-chat');
+  const isTemporaryWindow = (node) => !!node && node.isConnected !== false &&
+    (node.classList ? node.classList.contains('is-temporary-chat') : !!document.querySelector('chat-window.is-temporary-chat'));
+  const temporaryReady = () => ready && isTemporaryWindow(chatWindow);
   const findPromptInput = () => document.querySelector('.ql-editor[contenteditable="true"][role="textbox"]');
   const focusElement = (el) => el.focus({ preventScroll: true });
   function moveCaretToEnd(el) {
@@ -18,10 +21,25 @@
     selection.removeAllRanges();
     selection.addRange(range);
   }
-  function focusPrompt() {
-    if (!temporaryReady()) { focusRequested = true; return; }
+  function tryFocusPrompt() {
+    if (!focusRequest || !temporaryReady() || activeFill) return;
     const input = findPromptInput();
-    if (input) { focusElement(input); moveCaretToEnd(input); focusRequested = false; }
+    if (!input) return;
+    if (document.activeElement !== input) {
+      focusElement(input);
+      if (document.activeElement !== input) return;
+      moveCaretToEnd(input);
+    }
+    const { requestId } = focusRequest;
+    focusRequest = null;
+    if (requestId !== undefined) {
+      window.parent.postMessage({ source: MESSAGE_SOURCE, action: 'focusPromptResult', requestId, focused: true }, '*');
+    }
+  }
+  function focusPrompt(requestId) {
+    if (activeFill) return;
+    focusRequest = { requestId };
+    tryFocusPrompt();
   }
   function report(error = '') {
     window.parent.postMessage({ source: MESSAGE_SOURCE, action: 'geminiState', ready: temporaryReady(), error }, '*');
@@ -82,9 +100,15 @@
           report('The selected Gemini model is unavailable or could not be confirmed. Change Default Gemini model in ChatSprig Settings, then retry.');
           return;
         }
+        chatWindow = document.querySelector('chat-window.is-temporary-chat');
+        if (!isTemporaryWindow(chatWindow)) {
+          report('Gemini left temporary mode. Start a new temporary chat to continue.');
+          return;
+        }
+        temporaryObserver.observe(chatWindow, { attributes: true, attributeFilter: ['class'] });
         ready = initialized = true;
         report();
-        if (focusRequested) focusPrompt();
+        tryFocusPrompt();
         return;
       }
       const button = document.querySelector('[data-test-id="temp-chat-button-container"] button') ||
@@ -117,6 +141,7 @@
   async function fillSelection(message) {
     if (!temporaryReady()) return { message: 'Gemini temporary mode is not ready.' };
     if (handled.has(message.id) || activeFill) return { message: 'Selection already handled or sidebar busy.' };
+    focusRequest = null;
     handled.add(message.id);
     const operation = { id: message.id, cancelled: false };
     activeFill = operation;
@@ -187,20 +212,35 @@
   });
   window.addEventListener('message', (event) => {
     if (event.source !== window.parent || event.data?.source !== MESSAGE_SOURCE) return;
-    if (event.data.action === 'focusPrompt') focusPrompt();
+    if (event.data.action === 'focusPrompt') focusPrompt(event.data.requestId);
+    if (event.data.action === 'cancelFocusPrompt' &&
+        (event.data.requestId === undefined || focusRequest?.requestId === event.data.requestId)) focusRequest = null;
   });
   chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== 'sync' || !changes.hideChatgptSidebar) return;
     settings = await cgptLoadSettings();
     applySettings();
   });
-  new MutationObserver(() => {
-    if (initialized && ready && !document.querySelector('chat-window.is-temporary-chat')) {
+  const temporaryObserver = new MutationObserver((records) => {
+    if (!initialized || !ready) return;
+    // Streamed text and unrelated class changes do not need a document-wide query.
+    // A detached chat window may have been replaced during Angular navigation.
+    if (chatWindow?.isConnected === false) {
+      chatWindow = document.querySelector('chat-window.is-temporary-chat');
+      temporaryObserver.disconnect();
+      temporaryObserver.observe(document.documentElement, { childList: true, subtree: true });
+      if (chatWindow) temporaryObserver.observe(chatWindow, { attributes: true, attributeFilter: ['class'] });
+    }
+    if ((!records || records.some(record => record.type === 'childList' || record.target === chatWindow)) &&
+        !isTemporaryWindow(chatWindow)) {
       ready = false;
+      focusRequest = null;
       if (activeFill) activeFill.cancelled = true;
       report('Gemini left temporary mode. Start a new temporary chat to continue.');
     }
-  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    tryFocusPrompt();
+  });
+  temporaryObserver.observe(document.documentElement, { childList: true, subtree: true });
   registerFrame();
   initialize().catch(() => report('Gemini could not initialize. Retry temporary chat.'));
 })();

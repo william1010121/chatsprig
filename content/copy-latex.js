@@ -85,15 +85,17 @@
     return foundMath ? fragment.textContent || '' : null;
   }
 
-  function getSelectedLatex() {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null;
+  function getSelectedLatex(savedRanges) {
+    const selection = savedRanges ? null : window.getSelection();
+    if (!savedRanges && (!selection || selection.isCollapsed || selection.rangeCount === 0)) return null;
+    const ranges = savedRanges || Array.from({ length: selection.rangeCount }, (_, index) => selection.getRangeAt(index));
+    if (ranges.some(range => range.startContainer?.isConnected === false || range.endContainer?.isConnected === false)) return null;
 
     const parts = [];
     let foundMath = false;
 
-    for (let index = 0; index < selection.rangeCount; index++) {
-      const range = expandRange(selection.getRangeAt(index));
+    for (const savedRange of ranges) {
+      const range = expandRange(savedRange);
       const converted = convertFragment(range.cloneContents());
 
       if (converted !== null) foundMath = true;
@@ -105,8 +107,8 @@
   }
 
   // Reuse the exact clipboard conversion from other extension content scripts.
-  // Capture while the selection still exists; opening the overlay moves focus.
-  globalThis.cgptGetSelectedLatex = () => enabled ? getSelectedLatex() : null;
+  // Convert before opening the overlay, or use ranges saved before focus moved.
+  globalThis.cgptGetSelectedLatex = (ranges) => enabled ? getSelectedLatex(ranges) : null;
 
   function isCopyShortcut(event) {
     return (

@@ -5,6 +5,7 @@
   const visible = el => !el.closest('[hidden], [aria-hidden="true"]') && el.getClientRects().length > 0;
   const conversationPath = path => /\/c\/[^/]+/.test(path);
   let known = null;
+  let modeRoots = [];
   function remember(mode, composer) {
     const changed = known?.mode !== mode || known?.path !== location.pathname;
     known = { mode, composer, path: location.pathname };
@@ -16,9 +17,12 @@
   function getMode() {
     if (!isChatgpt) return 'unknown';
     const composer = document.querySelector('form[data-type="unified-composer"], form[data-thread-find-composer]');
+    modeRoots = composer ? [composer] : [];
     if (!composer) return 'unknown';
     const triggers = [...composer.querySelectorAll('button[aria-haspopup="menu"]')];
-    const groups = [...document.querySelectorAll('[role="radiogroup"]')].filter(el =>
+    const allGroups = [...document.querySelectorAll('[role="radiogroup"]')];
+    modeRoots.push(...allGroups);
+    const groups = allGroups.filter(el =>
       el.getClientRects().length && !el.closest('[hidden], [data-message-author-role]'));
     const evidence = new Set();
     let hasSelector = false;
@@ -43,8 +47,9 @@
     // Newer layouts: new chats show a pressed Chat/Work button; every Chat
     // composer carries data-chatgpt-composer, which Work composers omit.
     if (composer.hasAttribute?.('data-thread-find-composer')) {
-      const pressed = [...document.querySelectorAll('[role="group"][aria-label="Composer mode"] button[aria-pressed="true"]')]
-        .filter(visible).map(el => el.textContent.trim());
+      const pressedButtons = [...document.querySelectorAll('[role="group"][aria-label="Composer mode"] button[aria-pressed="true"]')];
+      modeRoots.push(...pressedButtons);
+      const pressed = pressedButtons.filter(visible).map(el => el.textContent.trim());
       if (pressed.length === 1 && /^(Chat|聊天|對話|对话)$/i.test(pressed[0])) return remember('chat', composer);
       if (pressed.length === 1 && /^(Work|工作)$/i.test(pressed[0])) return remember('work', composer);
       return remember(composer.hasAttribute('data-chatgpt-composer') ? 'chat' : 'work', composer);
@@ -59,6 +64,7 @@
       const menuId = trigger.getAttribute('aria-controls');
       const menu = menuId && document.getElementById(menuId);
       const picker = menu?.querySelector('[data-testid="composer-intelligence-picker-content"]');
+      if (picker) modeRoots.push(picker);
       if (!picker || !picker.getClientRects().length) continue;
       if (picker.querySelector('[data-fast-mode-enabled]')) return remember('work', composer);
       if ([...picker.querySelectorAll('[role="menuitemradio"]')].some(el =>
@@ -125,11 +131,12 @@
     // A truncated/virtualized history must not become a smaller, guessed count.
     const indices = turns.map(turn => Number(/^conversation-turn-(\d+)$/.exec(turn.getAttribute('data-testid'))?.[1] ?? NaN));
     if (indices.some((index, i) => !Number.isSafeInteger(index) || index !== i + 1)) return null;
-    if (messages.some(message => !turns.some(turn => turn.contains(message)))) return null;
     const users = [];
+    const turnMessages = new Set();
     for (const turn of turns) {
       const entries = [...turn.querySelectorAll('[data-message-author-role]')].filter(visible);
       if (!entries.length) return null;
+      for (const entry of entries) turnMessages.add(entry);
       const userEntries = entries.filter(el => el.getAttribute('data-message-author-role') === 'user');
       if (userEntries.length > 1) return null;
       if (userEntries.length) {
@@ -138,6 +145,7 @@
         users.push(id);
       }
     }
+    if (messages.some(message => !turnMessages.has(message))) return null;
     if (!users.length || new Set(users).size !== users.length) return null;
     return { count: users.length, key: JSON.stringify(users) };
   }
@@ -233,8 +241,52 @@
   }
   globalThis.cgptChatContext = { getMode: refreshMode, getHistory, getCountState, beginSendObservation,
     get revision() { refreshMode(); return revision; } };
-  new MutationObserver(() => { refreshMode(); if (pendingSend) checkSend(); }).observe(document.documentElement, {
+  const modeSelector = 'form[data-type="unified-composer"], form[data-thread-find-composer], [role="radiogroup"], [role="group"][aria-label="Composer mode"], [data-testid="composer-intelligence-picker-content"], [data-tpp-toggle-value]';
+  const messageSelector = '[data-message-author-role], [data-chatgpt-search-unit-key]';
+  const editorSelector = '#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown]';
+  const elementOf = node => node?.nodeType === 3 ? node.parentElement : node;
+  const hasMatch = (node, selector) => !!(node?.matches?.(selector) || node?.querySelector?.(selector));
+  let observedPath = location.pathname;
+  let scheduled = false;
+  let modeDirty = false;
+  let sendDirty = false;
+  function flushContext() {
+    scheduled = false;
+    const updateMode = modeDirty;
+    const updateSend = sendDirty;
+    modeDirty = sendDirty = false;
+    observedPath = location.pathname;
+    if (updateMode) refreshMode();
+    if (updateSend && pendingSend) checkSend();
+  }
+  function scheduleContext() {
+    if (scheduled) return;
+    scheduled = true;
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flushContext);
+    else if (typeof queueMicrotask === 'function') queueMicrotask(flushContext);
+    else flushContext();
+  }
+  new MutationObserver(records => {
+    // Keep direct refreshes synchronous; production callbacks always carry records.
+    if (!records) { refreshMode(); if (pendingSend) checkSend(); return; }
+    if (observedPath !== location.pathname) modeDirty = sendDirty = true;
+    for (const record of records) {
+      const target = elementOf(record.target);
+      const inMessage = target?.closest?.(messageSelector);
+      const inEditor = target?.closest?.(editorSelector);
+      if (!inMessage && !inEditor && target?.closest?.(modeSelector)) modeDirty = true;
+      if (record.type === 'attributes' && !inMessage && !inEditor &&
+          modeRoots.some(root => target === root || target?.contains?.(root))) modeDirty = true;
+      if (pendingSend && inMessage && record.type !== 'characterData') sendDirty = true;
+      if (record.type !== 'childList') continue;
+      for (const node of [...(record.addedNodes || []), ...(record.removedNodes || [])]) {
+        if (!inMessage && !inEditor && hasMatch(node, modeSelector)) modeDirty = true;
+        if (pendingSend && hasMatch(node, messageSelector)) sendDirty = true;
+      }
+    }
+    if (modeDirty || sendDirty) scheduleContext();
+  }).observe(document.documentElement, {
     childList: true, subtree: true, characterData: true, attributes: true,
-    attributeFilter: ['aria-selected', 'aria-checked', 'aria-pressed', 'aria-label', 'aria-controls', 'data-tpp-toggle-value', 'data-chatgpt-composer', 'aria-hidden', 'hidden', 'class', 'style']
+    attributeFilter: ['aria-selected', 'aria-checked', 'aria-pressed', 'aria-label', 'aria-controls', 'aria-describedby', 'role', 'data-tpp-toggle-value', 'data-chatgpt-composer', 'data-thread-find-composer', 'data-message-id', 'data-chatgpt-search-message-ids', 'aria-hidden', 'hidden', 'class', 'style']
   });
 })();

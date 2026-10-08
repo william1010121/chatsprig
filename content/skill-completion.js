@@ -7,6 +7,7 @@
   const name = 'chatsprig-skills';
   let skills = [];
   let systemPrompt = '';
+  let availableSkills = [];
   let active = null;
   let selectedIndex = 0;
   let composing = false;
@@ -39,11 +40,12 @@
     const paragraph = container?.closest('p');
     beforeRange.selectNodeContents(paragraph && input.contains(paragraph) ? paragraph : input);
     beforeRange.setEnd(caret.startContainer, caret.startOffset);
-    const match = beforeRange.toString().match(/(?:^|\s)\/\/([^\r\n]{0,80})$/u);
+    const before = beforeRange.toString();
+    const match = before.match(/(?:^|\s)\/\/([^\r\n]{0,80})$/u);
     if (!match) return null;
     const token = '//' + match[1];
     const root = paragraph && input.contains(paragraph) ? paragraph : input;
-    const target = beforeRange.toString().length - token.length;
+    const target = before.length - token.length;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     let offset = 0;
     while (walker.nextNode()) {
@@ -58,14 +60,19 @@
     }
     return null;
   }
-  function available() {
+  function rebuildSkills() {
     const items = skills.filter(skill => skill && typeof skill.name === 'string' && typeof skill.content === 'string');
     if (systemPrompt.trim()) items.unshift({ name: 'system-prompt', content: systemPrompt });
-    return items;
+    availableSkills = items.map(skill => ({
+      name: skill.name,
+      content: skill.content,
+      lowerName: skill.name.toLocaleLowerCase(),
+      preview: skill.content.replace(/\s+/g, ' ').slice(0, 100)
+    }));
   }
   function matches(query) {
     const needle = query.trim().toLocaleLowerCase();
-    return available().filter(skill => skill.name.toLocaleLowerCase().includes(needle));
+    return availableSkills.filter(skill => skill.lowerName.includes(needle));
   }
   function ensureMenu() {
     if (host) return;
@@ -112,7 +119,7 @@
     if (!choices.length) {
       const empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = available().length ? 'No matching skills' : 'Add skills in ChatSprig Settings';
+      empty.textContent = availableSkills.length ? 'No matching skills' : 'Add skills in ChatSprig Settings';
       list.appendChild(empty);
     }
     choices.forEach((skill, index) => {
@@ -124,11 +131,15 @@
       const title = document.createElement('strong');
       title.textContent = `//${skill.name}`;
       const preview = document.createElement('small');
-      preview.textContent = skill.content.replace(/\s+/g, ' ').slice(0, 100);
+      preview.textContent = skill.preview;
       button.append(title, preview);
       list.appendChild(button);
     });
     host.hidden = false;
+    positionMenu();
+  }
+  function positionMenu() {
+    if (!active || !host) return;
     const rect = active.input.getBoundingClientRect();
     const height = host.getBoundingClientRect().height;
     host.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - host.offsetWidth - 8))}px`;
@@ -145,6 +156,7 @@
     if (changed) selectedIndex = 0;
     active = next;
     if (changed) render();
+    else positionMenu();
     lastUpdateTiming = { triggerMs, renderMs: performance.now() - start - triggerMs };
   }
   function choose(index) {
@@ -227,18 +239,28 @@
   }, true);
   chrome.storage.local.get({ skills: [] }).then(result => {
     skills = Array.isArray(result.skills) ? result.skills : [];
+    rebuildSkills();
     render();
   }).catch(() => {});
   cgptLoadSettings().then(settings => {
     systemPrompt = typeof settings.systemPrompt === 'string' ? settings.systemPrompt : '';
+    rebuildSkills();
     render();
   }).catch(() => {});
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.skills) skills = Array.isArray(changes.skills.newValue) ? changes.skills.newValue : [];
+    let changed = false;
+    if (area === 'local' && changes.skills) {
+      skills = Array.isArray(changes.skills.newValue) ? changes.skills.newValue : [];
+      changed = true;
+    }
     if (area === 'sync' && changes.systemPrompt) {
       systemPrompt = typeof changes.systemPrompt.newValue === 'string' ? changes.systemPrompt.newValue : '';
+      changed = true;
     }
-    render();
+    if (changed) {
+      rebuildSkills();
+      render();
+    }
   });
   globalThis.cgptSkillCompletion = { isMenuOpen: () => !!active, getLastTiming: () => lastTiming };
 })();

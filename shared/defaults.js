@@ -2,6 +2,8 @@
 (function () {
   'use strict';
 
+  if (globalThis.cgptLoadSettings) return;
+
   // Shared settings defaults. Loaded as a plain script before content scripts
   // and the options page; background.js imports shared/defaults.mjs instead.
   const DEFAULT_SETTINGS = {
@@ -28,9 +30,27 @@
     rewriteCookies: true
   };
 
+  let pending = null;
   function loadSettings() {
-    return chrome.storage.sync.get(DEFAULT_SETTINGS);
+    if (!pending) {
+      const changes = {};
+      const promise = chrome.storage.sync.get(DEFAULT_SETTINGS)
+        .then((settings) => ({ ...settings, ...changes }))
+        .finally(() => { pending = null; });
+      pending = { promise, changes };
+    }
+    // Share only an in-flight read; later calls always see current storage.
+    return pending.promise.then((settings) => ({ ...settings }));
   }
+
+  chrome.storage.onChanged?.addListener((changes, area) => {
+    if (area !== 'sync' || !pending) return;
+    for (const [key, change] of Object.entries(changes)) {
+      if (key in DEFAULT_SETTINGS) {
+        pending.changes[key] = 'newValue' in change ? change.newValue : DEFAULT_SETTINGS[key];
+      }
+    }
+  });
 
   globalThis.CGPT_HELPER_DEFAULTS = DEFAULT_SETTINGS;
   globalThis.cgptLoadSettings = loadSettings;
