@@ -46,7 +46,7 @@ await page.goto(`file://${fixture}`);
 await page.waitForSelector('#cgpt-helper-compact-settings');
 await page.click('#cgpt-helper-compact-settings');
 const results = await page.evaluate(() => {
-  const slider = document.querySelector('#cgpt-helper-side-margin');
+  const slider = document.querySelector('[data-setting="compactSideMargin"]');
   const width = selector => document.querySelector(selector).getBoundingClientRect().width;
   const measure = () => Object.fromEntries(['#text', '#list', '#after', '#card', 'form[data-chatgpt-composer]'].map(s => [s, width(s)]));
   const sizes = ['0', '12', '25'].map(value => {
@@ -68,8 +68,13 @@ const results = await page.evaluate(() => {
     composer.setAttribute(attribute, attribute === 'data-type' ? 'unified-composer' : 'true');
     return { attribute, text: width('#text'), padding: getComputedStyle(wrapper).paddingInline };
   });
+  // Paragraph spacing drives paragraph margins live.
+  const spacing = document.querySelector('[data-setting="compactParagraphSpacing"]');
+  spacing.value = '20';
+  spacing.dispatchEvent(new Event('input', { bubbles: true }));
+  const paragraphMargin = getComputedStyle(document.querySelector('#text')).marginBottom;
   document.documentElement.classList.remove('cgpt-helper-compact');
-  return { sizes, native, nestedComposers, cardLineHeight: getComputedStyle(document.querySelector('#card-text')).lineHeight };
+  return { sizes, paragraphMargin, native, nestedComposers, cardLineHeight: getComputedStyle(document.querySelector('#card-text')).lineHeight };
 });
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const near = (a, b) => Math.abs(a - b) < 1;
@@ -86,5 +91,6 @@ for (const size of results.sizes) {
 for (const composer of results.nestedComposers) {
   assert(near(composer.text, 768) && composer.padding === '20px', `${composer.attribute} must protect the native composer wrapper`);
 }
+assert(results.paragraphMargin === '20px', 'Paragraph spacing slider must set paragraph margins');
 console.log({ passed: true, ...results });
 if (!globalThis.qaSpace) await task.finish({ keep: [] });
