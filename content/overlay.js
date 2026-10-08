@@ -368,6 +368,8 @@
   // One button per live frame, so switching never recreates a conversation.
   function renderRail() {
     const rail = shadow.querySelector('.rail');
+    // Rebuilding drops the focused button; hand focus to its replacement.
+    const focusedKey = shadow.activeElement?.closest?.('.rail button')?.dataset.key;
     hideRailTip();
     rail.replaceChildren();
     let branches = 0;
@@ -393,6 +395,7 @@
         button.innerHTML = RAIL_ICONS[key] || RAIL_ICONS.chatgpt;
       }
       rail.appendChild(button);
+      if (key === focusedKey) button.focus({ preventScroll: true });
     }
   }
 
