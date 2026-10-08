@@ -20,6 +20,10 @@ const shim = `
   put(ids.parent, 'b1', ids.child); put(ids.child, 'b2', ids.grandchild); put(ids.oldParent, 'b4', ids.oldChild);
   // Still being created by btw.js: Clean must leave this record alone.
   storage['btwBranch:' + ids.parent + ':b3'] = { id: 'b3', session: ids.parent, title: 'opening', url: 'https://chatgpt.com/branch/' + ids.parent + '/m1', createdAt: Date.now(), state: 'opening' };
+  // Looks abandoned, but resolves to a new chat while Clean is deleting: it must survive.
+  storage['btwBranch:' + ids.parent + ':b5'] = { id: 'b5', session: ids.parent, title: 'late', url: 'https://chatgpt.com/branch/' + ids.parent + '/m2', createdAt: 1, state: 'opening' };
+  // Abandoned for good: Clean removes it.
+  storage['btwBranch:' + ids.parent + ':b6'] = { id: 'b6', session: ids.parent, title: 'abandoned', url: 'https://chatgpt.com/branch/' + ids.parent + '/m3', createdAt: 1, state: 'failed' };
   window.qa = { ...ids, fetches: [], assigned: null, confirmed: null, failOnce: ids.grandchild, failLookupOnce: ids.nativeBranch, alerts: [] };
   window.alert = message => qa.alerts.push(message);
   window.cgptCloseBtwChats = chats => { qa.closed = chats; };
@@ -40,6 +44,11 @@ const shim = `
     const chat = url.split('/').pop();
     if (init.method === 'PATCH') {
       if (qa.failOnce === chat) { qa.failOnce = null; return reply(500, {}); }
+      if (qa.resolveLate) {
+        qa.resolveLate = false;
+        const key = 'btwBranch:' + ids.parent + ':b5';
+        await window.chrome.storage.local.set({ [key]: { ...storage[key], url: 'https://chatgpt.com/c/' + id('40'), state: 'ready' } });
+      }
       return reply(200, { success: true });
     }
     // A transient error must be retried later, not cached as a settled comparison.
@@ -105,13 +114,13 @@ await page.waitForFunction(() => qa.alerts.length === 1);
 const partial = await page.evaluate(() => ({ keys: Object.keys(qaStorage).filter(key => key.startsWith('btwBranch:')).length, assigned: qa.assigned,
   childHidden: getComputedStyle(document.querySelector(`a[href="/c/${qa.child}"]`).closest('[role="listitem"]')).display }));
 console.log({ partial });
-assert(partial.keys === 4 && !partial.assigned && partial.childHidden === 'none', 'A partial failure must keep every local link and stay put');
+assert(partial.keys === 6 && !partial.assigned && partial.childHidden === 'none', 'A partial failure must keep every local link and stay put');
 // The retry offers only the survivor, then prunes everything except the opening branch.
 await hover('other');
 await hover('parent');
 await page.waitForFunction(() => document.querySelector('#cgpt-helper-branch-clean')?.style.display === 'block');
 assert(await chipText() === 'Clean · 1', 'Retry must count only the surviving branch');
-await page.evaluate(() => { qa.fetches = []; document.querySelector('#cgpt-helper-branch-clean').shadowRoot.querySelector('button').click(); });
+await page.evaluate(() => { qa.fetches = []; qa.resolveLate = true; document.querySelector('#cgpt-helper-branch-clean').shadowRoot.querySelector('button').click(); });
 await page.waitForFunction(() => qa.assigned);
 const result = await page.evaluate(() => ({
   patches: qa.fetches.filter(item => item.method === 'PATCH'), confirmed: qa.confirmed, assigned: qa.assigned, parent: qa.parent, grandchild: qa.grandchild,
@@ -124,7 +133,7 @@ assert(result.patches.length === 1 && result.patches[0].url.endsWith(result.gran
   result.patches[0].body === '{"is_visible":false}', 'Retry must delete only the surviving branch');
 assert(JSON.stringify(result.closed) === JSON.stringify([result.child, result.grandchild].sort()), 'Deleted chats must be closed in the floating window');
 assert(/Delete 1 branch chat /.test(result.confirmed), 'Deletion must be confirmed first');
-assert(JSON.stringify(result.keys) === '["b3","b4"]', 'Only the opening branch and unrelated records remain');
+assert(JSON.stringify(result.keys) === '["b3","b4","b5"]', 'Opening, late-resolved and unrelated records remain; abandoned and deleted ones go');
 assert(result.hidden.every(display => display === 'none') && result.parentVisible !== 'none', 'Only deleted rows are hidden');
 assert(result.assigned === `/c/${result.parent}`, 'Viewing a deleted branch must return to the source');
 console.log('branch-tree: ok');

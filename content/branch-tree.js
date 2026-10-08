@@ -228,7 +228,7 @@
   // tried: candidates compared without a match. retry: failed lookups wait with exponential backoff.
   const tried = new Map(), retry = new Map();
   let retryTimer = 0;
-  let inferring = false, rerun = false;
+  let inferring = false, rerun = false, inferPass = Promise.resolve();
   // Conversations keep growing, so mappings are cached for one inference pass only.
   async function conversation(id, nodes) {
     if (!nodes.has(id)) {
@@ -262,6 +262,8 @@
     for (const id of retry.keys()) if (!waiting.has(id) && !pending.some(item => item.id === id)) retry.delete(id);
     if (!pending.length) { armRetry(); return; }
     inferring = true;
+    let finishPass;
+    inferPass = new Promise(resolve => { finishPass = resolve; });
     const found = {}, nodes = new Map();
     try {
       for (const { id, candidates } of pending) {
@@ -283,12 +285,14 @@
         }
       }
       if (Object.keys(found).length && extensionActive()) {
-        const current = (await chrome.storage.local.get(PARENTS))[PARENTS] || {};
-        await chrome.storage.local.set({ [PARENTS]: { ...current, ...found } });
+        // Never write back a link that Clean removed meanwhile.
+        const merged = { ...((await chrome.storage.local.get(PARENTS))[PARENTS] || {}), ...found };
+        for (const [chat, entry] of Object.entries(merged)) if (deleted.has(chat) || deleted.has(entry?.parent || entry)) delete merged[chat];
+        await chrome.storage.local.set({ [PARENTS]: merged });
       }
     } catch (error) { storageError(error); }
     finally {
-      inferring = false; armRetry();
+      inferring = false; finishPass(); armRetry();
       if (rerun) { rerun = false; schedule(); }
     }
   }
@@ -370,6 +374,12 @@
     const name = title.length > 60 ? `${title.slice(0, 60)}…` : title;
     if (!window.confirm(`Delete ${targets.length} branch chat${targets.length === 1 ? '' : 's'} under “${name}”?\n\nThis includes branches of branches and cannot be undone.`)) return;
     busy = true; chip.disabled = true; chip.textContent = 'Deleting…';
+    // busy blocks new inference passes; let a running one finish its storage write first.
+    await inferPass;
+    // Snapshot what each record pointed to: a branch that finishes opening meanwhile resolves
+    // to a chat that was not deleted, and its record must survive.
+    const recordOf = () => new Map([...index.values()].flat().filter(record => record.key).map(record => [record.key, record]));
+    const before = recordOf();
     const failed = new Set();
     for (const chat of targets) {
       try {
@@ -381,9 +391,13 @@
     }
     // Prune local links only after a complete success: a surviving descendant must stay
     // reachable from the source, and a retry treats already-deleted chats (404) as done.
-    // Branches btw.js is still creating are left to it.
-    const opening = new Set([...index.values()].flat().filter(record => record.key && record.opening).map(record => record.key));
-    const stale = keys.filter(key => !opening.has(key));
+    // Branches btw.js is still creating are left to it; abandoned unopened records go.
+    const after = recordOf();
+    const stale = keys.filter(key => {
+      const then = before.get(key), now = after.get(key);
+      if (!then || !now || now.chat !== then.chat) return false;
+      return then.chat ? deleted.has(then.chat) : !then.opening;
+    });
     try {
       if (!failed.size && extensionActive()) {
         const parents = { ...((await chrome.storage.local.get(PARENTS))[PARENTS] || {}) };
