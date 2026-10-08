@@ -97,6 +97,7 @@
         "content/chat-context.js",
         "content/skill-completion.js",
         "content/btw.js",
+        "content/branch-tree.js",
         "content/system-prompt.js",
         "content/frame-helper.js",
         "content/compact-view.js",
