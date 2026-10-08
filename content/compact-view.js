@@ -72,21 +72,24 @@
     }
     #${BUTTON_ID}:focus-visible, #${PROMPT_ID}:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
     html.${CLASS} ${MARKDOWN} :is(p, ul, ol, blockquote, pre, table)${PROSE} {
-      margin-top: 8px !important; margin-bottom: 8px !important;
+      margin-top: var(--cgpt-helper-compact-paragraph-spacing, 8px) !important;
+      margin-bottom: var(--cgpt-helper-compact-paragraph-spacing, 8px) !important;
     }
-    html.${CLASS} ${MARKDOWN} li${PROSE} {
-      margin-top: 3px !important; margin-bottom: 3px !important;
+    html.${CLASS} ${MARKDOWN} :is(li, li > :is(ul, ol))${PROSE} {
+      margin-top: var(--cgpt-helper-compact-list-spacing, 3px) !important;
+      margin-bottom: var(--cgpt-helper-compact-list-spacing, 3px) !important;
     }
     html.${CLASS} ${MARKDOWN} li > p${PROSE} {
       margin-top: 0 !important; margin-bottom: 0 !important;
     }
     html.${CLASS} ${MARKDOWN} :is(h1,h2,h3,h4)${PROSE} {
-      margin-top: 16px !important; margin-bottom: 8px !important;
+      margin-top: calc(2 * var(--cgpt-helper-compact-paragraph-spacing, 8px)) !important;
+      margin-bottom: var(--cgpt-helper-compact-paragraph-spacing, 8px) !important;
     }
     html.${CLASS} ${MARKDOWN} :is(p,li,blockquote)${PROSE} {
       line-height: var(--cgpt-helper-compact-line-height, 1.65) !important;
     }
-    html.${CLASS} ${MARKDOWN} hr${PROSE} { margin: 8px 0 !important; }
+    html.${CLASS} ${MARKDOWN} hr${PROSE} { margin: var(--cgpt-helper-compact-paragraph-spacing, 8px) 0 !important; }
     /* Join adjacent prose visually; leave React's message DOM untouched. */
     html.${CLASS}.${JOIN_CLASS} ${MARKDOWN} > :is(
       p:not(:has(.katex-display, math[display="block"], img, br)):has(+ p:not(:has(.katex-display, math[display="block"], img, br))),
@@ -130,10 +133,19 @@
   `;
   document.documentElement.appendChild(style);
 
-  let lineHeight = 1.65;
-  let sideMargin = 12;
-  const validLineHeight = value => typeof value === 'number' && Number.isFinite(value) && value >= 1.2 && value <= 2.4 ? value : 1.65;
-  const validSideMargin = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 25 ? value : 12;
+  // Slider-backed layout settings: storage key → range, default and CSS variable.
+  const LAYOUT = {
+    compactLineHeight: { label: 'Line spacing', min: 1.2, max: 2.4, step: 0.05, fallback: 1.65, variable: '--cgpt-helper-compact-line-height', unit: '', format: value => value.toFixed(2) },
+    compactParagraphSpacing: { label: 'Paragraph spacing', min: 0, max: 24, step: 1, fallback: 8, variable: '--cgpt-helper-compact-paragraph-spacing', unit: 'px' },
+    compactListSpacing: { label: 'List item spacing', min: 0, max: 12, step: 1, fallback: 3, variable: '--cgpt-helper-compact-list-spacing', unit: 'px' },
+    compactSideMargin: { label: 'Side margins', min: 0, max: 25, step: 1, fallback: 12, variable: '--cgpt-helper-compact-side-margin', unit: '%' }
+  };
+  const validLayout = (key, value) => {
+    const { min, max, fallback } = LAYOUT[key];
+    return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+  };
+  const layoutDefaults = () => Object.fromEntries(Object.entries(LAYOUT).map(([key, spec]) => [key, spec.fallback]));
+  let layout = layoutDefaults();
   let nativeComposer = null;
   const nativeWidthObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(updateNativeWidth) : null;
   function updateNativeWidth() {
@@ -169,14 +181,12 @@
   window.addEventListener('cgpt-helper-mode-change', updatePromptVisibility);
   window.addEventListener('cgpt-helper-count-change', updatePromptVisibility);
   function render() {
-    document.documentElement.style.setProperty('--cgpt-helper-compact-line-height', String(lineHeight));
-    document.documentElement.style.setProperty('--cgpt-helper-compact-side-margin', `${sideMargin}%`);
     const panel = document.getElementById(PANEL_ID);
-    if (panel) {
-      panel.querySelector('[data-setting="compactLineHeight"]').value = String(lineHeight);
-      panel.querySelector('[data-setting="compactSideMargin"]').value = String(sideMargin);
-      panel.querySelector('[data-value="compactLineHeight"]').textContent = lineHeight.toFixed(2);
-      panel.querySelector('[data-value="compactSideMargin"]').textContent = `${sideMargin}%`;
+    for (const [key, spec] of Object.entries(LAYOUT)) {
+      document.documentElement.style.setProperty(spec.variable, `${layout[key]}${spec.unit}`);
+      if (!panel) continue;
+      panel.querySelector(`[data-setting="${key}"]`).value = String(layout[key]);
+      panel.querySelector(`[data-value="${key}"]`).textContent = spec.format ? spec.format(layout[key]) : `${layout[key]}${spec.unit}`;
     }
     document.documentElement.classList.toggle(CLASS, enabled);
     document.documentElement.classList.toggle(JOIN_CLASS, joinParagraphs);
@@ -201,7 +211,7 @@
   async function saveLayout() {
     const panel = document.getElementById(PANEL_ID);
     try {
-      await chrome.storage.sync.set({ compactView: enabled, compactLineHeight: lineHeight, compactSideMargin: sideMargin });
+      await chrome.storage.sync.set({ compactView: enabled, ...layout });
       if (panel) panel.querySelector('[role="status"]').textContent = '';
     } catch {
       if (panel) panel.querySelector('[role="status"]').textContent = 'Could not save. Please try again.';
@@ -216,22 +226,20 @@
       panel.setAttribute('aria-label', 'Compact view settings');
       panel.innerHTML = `
         <header><strong>Compact view</strong><button type="button" aria-label="Close compact settings">×</button></header>
-        <label for="cgpt-helper-line-height">Line spacing <output data-value="compactLineHeight"></output></label>
-        <input id="cgpt-helper-line-height" data-setting="compactLineHeight" type="range" min="1.2" max="2.4" step="0.05" aria-label="Line spacing">
-        <label for="cgpt-helper-side-margin">Side margins <output data-value="compactSideMargin"></output></label>
-        <input id="cgpt-helper-side-margin" data-setting="compactSideMargin" type="range" min="0" max="25" step="1" aria-label="Side margins">
+        ${Object.entries(LAYOUT).map(([key, spec]) => `
+        <label for="cgpt-helper-${key}">${spec.label} <output data-value="${key}"></output></label>
+        <input id="cgpt-helper-${key}" data-setting="${key}" type="range" min="${spec.min}" max="${spec.max}" step="${spec.step}" aria-label="${spec.label}">`).join('')}
         <button type="button" class="cgpt-helper-compact-reset">Reset</button><div role="status"></div>`;
       panel.querySelector('header button').addEventListener('click', closePanel);
       for (const input of panel.querySelectorAll('input[type="range"]')) {
         input.addEventListener('input', () => {
-          if (input.dataset.setting === 'compactLineHeight') lineHeight = validLineHeight(Number(input.value));
-          else sideMargin = validSideMargin(Number(input.value));
+          layout[input.dataset.setting] = validLayout(input.dataset.setting, Number(input.value));
           render();
         });
         input.addEventListener('change', saveLayout);
       }
       panel.querySelector('.cgpt-helper-compact-reset').addEventListener('click', () => {
-        lineHeight = 1.65; sideMargin = 12; render(); saveLayout();
+        layout = layoutDefaults(); render(); saveLayout();
       });
       // Keep native menu keyboard handlers from consuming the slider's arrows.
       panel.addEventListener('keydown', event => {
@@ -354,8 +362,7 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') return;
     if (changes.systemPromptInterval) interval = Number.isSafeInteger(changes.systemPromptInterval.newValue) && changes.systemPromptInterval.newValue >= 0 ? changes.systemPromptInterval.newValue : 0;
-    if (changes.compactLineHeight) lineHeight = validLineHeight(changes.compactLineHeight.newValue);
-    if (changes.compactSideMargin) sideMargin = validSideMargin(changes.compactSideMargin.newValue);
+    for (const key of Object.keys(LAYOUT)) if (changes[key]) layout[key] = validLayout(key, changes[key].newValue);
     if (changes.compactView) enabled = changes.compactView.newValue === true;
     if (changes.compactJoinParagraphs) joinParagraphs = changes.compactJoinParagraphs.newValue === true;
     if (changes.appendSystemPrompt) appendPrompt = changes.appendSystemPrompt.newValue === true;
@@ -363,8 +370,7 @@
   });
   mount();
   cgptLoadSettings().then((settings) => {
-    lineHeight = validLineHeight(settings.compactLineHeight);
-    sideMargin = validSideMargin(settings.compactSideMargin);
+    for (const key of Object.keys(LAYOUT)) layout[key] = validLayout(key, settings[key]);
     interval = Number.isSafeInteger(settings.systemPromptInterval) && settings.systemPromptInterval >= 0 ? settings.systemPromptInterval : 0;
     enabled = settings.compactView === true;
     joinParagraphs = settings.compactJoinParagraphs !== false;

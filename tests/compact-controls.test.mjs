@@ -61,19 +61,25 @@ test('joining paragraphs can be changed without disabling other compact spacing'
   assert.ok(h.classes.has('cgpt-helper-compact'));
   assert.ok(!h.classes.has('cgpt-helper-compact-join-paragraphs'));
   assert.match(h.style, /html\.cgpt-helper-compact\.cgpt-helper-compact-join-paragraphs/);
-  assert.match(h.style, /html\.cgpt-helper-compact :is\(\[data-message-author-role="assistant"\] \.markdown, \[data-markdown-text-style="assistant-message"\]\) li/);
+  assert.match(h.style, /html\.cgpt-helper-compact :is\(\[data-message-author-role="assistant"\] \.markdown, \[data-markdown-text-style="assistant-message"\]\) :is\(li, li > :is\(ul, ol\)\)/);
 });
 
 test('compact layout validates synced slider values and retains defaults for invalid settings', async () => {
   const h = await harness();
   assert.equal(h.variables['--cgpt-helper-compact-line-height'], '1.65');
   assert.equal(h.variables['--cgpt-helper-compact-side-margin'], '12%');
-  h.change({ compactLineHeight: { newValue: 2.1 }, compactSideMargin: { newValue: 20 } });
+  assert.equal(h.variables['--cgpt-helper-compact-paragraph-spacing'], '8px');
+  assert.equal(h.variables['--cgpt-helper-compact-list-spacing'], '3px');
+  h.change({ compactLineHeight: { newValue: 2.1 }, compactSideMargin: { newValue: 20 }, compactParagraphSpacing: { newValue: 2 }, compactListSpacing: { newValue: 0 } });
   assert.equal(h.variables['--cgpt-helper-compact-line-height'], '2.1');
   assert.equal(h.variables['--cgpt-helper-compact-side-margin'], '20%');
+  assert.equal(h.variables['--cgpt-helper-compact-paragraph-spacing'], '2px');
+  assert.equal(h.variables['--cgpt-helper-compact-list-spacing'], '0px');
   for (const value of [null, '2', NaN, Infinity, -1, 30]) {
-    h.change({ compactLineHeight: { newValue: value }, compactSideMargin: { newValue: value } });
+    h.change({ compactLineHeight: { newValue: value }, compactSideMargin: { newValue: value }, compactParagraphSpacing: { newValue: value }, compactListSpacing: { newValue: value } });
     assert.equal(h.variables['--cgpt-helper-compact-line-height'], '1.65');
     assert.equal(h.variables['--cgpt-helper-compact-side-margin'], '12%');
+    assert.equal(h.variables['--cgpt-helper-compact-paragraph-spacing'], '8px');
+    assert.equal(h.variables['--cgpt-helper-compact-list-spacing'], '3px');
   }
 });

@@ -22,6 +22,8 @@
     compactView: false,
     compactJoinParagraphs: true,
     compactLineHeight: 1.65,
+    compactParagraphSpacing: 8,
+    compactListSpacing: 3,
     compactSideMargin: 12,
     autoSendAskInSidebar: true,
     appendSystemPrompt: false,
