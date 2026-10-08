@@ -49,6 +49,22 @@ assert(!layout.inside && layout.gap>0 && Math.abs(layout.top)<2 && layout.separa
 await page.hover("loc=css:.rail button[aria-label='BTW · 研究方向的問題']");
 await page.waitForTimeout(250);
 await page.screenshot({path:`${root}/draft/window-rail/rail-hover.png`});
+// Labels open toward the window and stay inside the viewport.
+const tip=await page.evaluate(()=>{
+  const shadow=document.querySelector('#cgpt-helper-overlay').shadowRoot,el=shadow.querySelector('.rail-tip'),t=el.getBoundingClientRect(),dock=shadow.querySelector('.rail').getBoundingClientRect();
+  return {hidden:el.hidden,text:el.textContent,left:t.left,right:t.right,dockLeft:dock.left};
+});
+assert(!tip.hidden && tip.text==='BTW · 研究方向的問題' && tip.right<=tip.dockLeft && tip.left>=0,`Tooltip is misplaced: ${JSON.stringify(tip)}`);
+// A short viewport scrolls the dock instead of pushing items off screen.
+await page.cdp('Emulation.setDeviceMetricsOverride',{width:900,height:200,deviceScaleFactor:1,mobile:false});
+const short=await page.evaluate(()=>{const r=document.querySelector('#cgpt-helper-overlay').shadowRoot.querySelector('.rail');const b=r.getBoundingClientRect();return {bottom:b.bottom,height:innerHeight,scrolls:r.scrollHeight>r.clientHeight};});
+assert(short.scrolls && short.bottom<=short.height,`Dock does not fit a short viewport: ${JSON.stringify(short)}`);
+await page.evaluate(()=>{const r=document.querySelector('#cgpt-helper-overlay').shadowRoot.querySelector('.rail');r.scrollTop=r.scrollHeight;});
+await page.click("loc=css:.rail button[aria-label='BTW · 研究方向的問題']");
+assert(await page.evaluate(()=>document.querySelector('#cgpt-helper-overlay').shadowRoot.querySelector(".rail button[aria-label='BTW · 研究方向的問題']").getAttribute('aria-current')==='true'),'Scrolled dock item was not reachable');
+await page.screenshot({path:`${root}/draft/window-rail/rail-short.png`});
+await page.cdp('Emulation.clearDeviceMetricsOverride',{});
+await page.click("loc=css:.rail button[aria-label='BTW · 另一個支線']");
 // Switching keeps each frame and its draft; no frame is recreated.
 const routes=await page.evaluate(()=>qa.routes.length);
 await page.evaluate(()=>{[...document.querySelector('#cgpt-helper-overlay').shadowRoot.querySelectorAll('iframe')].find(f=>!f.hidden).contentDocument.querySelector('#prompt-textarea').textContent='支線草稿';});

@@ -188,6 +188,11 @@
           align-items: center;
           gap: 6px;
           padding: 6px;
+          max-height: 88vh;
+          box-sizing: border-box;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          scrollbar-width: none;
           background: rgba(17, 24, 39, 0.94);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 14px;
@@ -195,6 +200,7 @@
           -webkit-backdrop-filter: blur(12px);
           backdrop-filter: blur(12px);
         }
+        .rail::-webkit-scrollbar { display: none; }
         .rail hr {
           width: 22px;
           margin: 2px 0;
@@ -203,6 +209,7 @@
         }
         .rail button {
           position: relative;
+          flex: 0 0 auto;
           width: 36px;
           height: 36px;
           border-radius: 10px;
@@ -218,7 +225,7 @@
         .rail button[aria-current="true"]::before {
           content: "";
           position: absolute;
-          left: -7px;
+          left: -5px;
           top: 9px;
           bottom: 9px;
           width: 3px;
@@ -241,13 +248,11 @@
         .rail button[data-hue="3"] { --chip: #f59e0b; }
         .rail button[data-hue="4"] { --chip: #ef4444; }
         .rail button[data-hue="5"] { --chip: #d946ef; }
-        .rail button::after {
-          content: attr(data-label);
-          position: absolute;
-          left: calc(100% + 12px);
-          top: 50%;
-          transform: translate(-4px, -50%);
-          max-width: 260px;
+        /* Labels open toward the window, so the viewport edge never clips them. */
+        .rail-tip {
+          position: fixed;
+          z-index: 1;
+          max-width: 280px;
           padding: 6px 10px;
           border-radius: 8px;
           background: #111827;
@@ -255,14 +260,14 @@
           box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
           font-size: 12px;
           font-weight: 500;
+          line-height: 1.4;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          opacity: 0;
           pointer-events: none;
-          transition: opacity 0.12s, transform 0.12s;
+          transform: translate(-100%, -50%);
         }
-        .rail button:hover::after, .rail button:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
+        .rail-tip[hidden] { display: none; }
         .footer {
           height: 24px;
           flex: 0 0 auto;
@@ -300,6 +305,7 @@
         </section>
         <nav class="rail" aria-label="Open chats"></nav>
       </div></div>
+      <div class="rail-tip" role="tooltip" hidden></div>
     `;
 
     shadow.addEventListener('click', (event) => {
@@ -312,6 +318,12 @@
       else if (action === 'close') hide();
       else if (action === 'switch') switchTo(button.dataset.key);
     });
+    const railButton = event => event.target instanceof Element ? event.target.closest('.rail button') : null;
+    shadow.addEventListener('pointerover', event => showRailTip(railButton(event)));
+    shadow.addEventListener('focusin', event => showRailTip(railButton(event)));
+    shadow.addEventListener('pointerout', hideRailTip);
+    shadow.addEventListener('focusout', hideRailTip);
+    shadow.addEventListener('scroll', hideRailTip, { capture: true, passive: true });
 
     document.documentElement.appendChild(host);
     applySize();
@@ -356,6 +368,7 @@
   // One button per live frame, so switching never recreates a conversation.
   function renderRail() {
     const rail = shadow.querySelector('.rail');
+    hideRailTip();
     rail.replaceChildren();
     let branches = 0;
     const entries = [...frames].sort(([, a], [, b]) => Number(!!a.branch) - Number(!!b.branch));
@@ -381,6 +394,23 @@
       }
       rail.appendChild(button);
     }
+  }
+
+  function showRailTip(button) {
+    const tip = shadow.querySelector('.rail-tip');
+    if (!button) { tip.hidden = true; return; }
+    const rail = shadow.querySelector('.rail').getBoundingClientRect();
+    const rect = button.getBoundingClientRect();
+    tip.textContent = button.dataset.label;
+    tip.style.left = `${rail.left - 8}px`;
+    tip.style.top = `${rect.top + rect.height / 2}px`;
+    tip.style.maxWidth = `${Math.max(120, Math.min(280, rail.left - 16))}px`;
+    tip.hidden = false;
+  }
+
+  function hideRailTip() {
+    const tip = shadow?.querySelector('.rail-tip');
+    if (tip) tip.hidden = true;
   }
 
   function switchTo(key) {
