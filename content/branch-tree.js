@@ -376,8 +376,8 @@
     await inferPass;
     // Snapshot what each record pointed to: a branch that finishes opening meanwhile resolves
     // to a chat that was not deleted, and its record must survive.
-    const recordOf = () => new Map([...index.values()].flat().filter(record => record.key).map(record => [record.key, record]));
-    const before = recordOf();
+    const recordOf = source => new Map([...source.values()].flat().filter(record => record.key).map(record => [record.key, record]));
+    const before = recordOf(index);
     const failed = new Set();
     for (const chat of targets) {
       try {
@@ -390,7 +390,10 @@
     // Prune local links only after a complete success: a surviving descendant must stay
     // reachable from the source, and a retry treats already-deleted chats (404) as done.
     // Branches btw.js is still creating are left to it; abandoned unopened records go.
-    const after = recordOf();
+    // Read storage directly: the index reloads asynchronously and may not show a branch that just resolved.
+    let after = new Map();
+    try { if (extensionActive()) after = recordOf(branchIndex(await chrome.storage.local.get(null))); }
+    catch (error) { storageError(error); }
     const stale = keys.filter(key => {
       const then = before.get(key), now = after.get(key);
       if (!then || !now || now.chat !== then.chat) return false;

@@ -27,9 +27,10 @@ const shim = `
   window.qa = { ...ids, fetches: [], assigned: null, confirmed: null, failOnce: ids.grandchild, failLookupOnce: ids.nativeBranch, alerts: [] };
   window.alert = message => qa.alerts.push(message);
   window.cgptCloseBtwChats = chats => { qa.closed = chats; };
+  // Change events arrive late, as in Chrome, so the in-memory index can lag behind storage.
   window.chrome = { runtime: { id: 'qa' }, storage: { onChanged: { addListener: fn => listeners.push(fn) }, local: {
     get: async key => key ? { [key]: storage[key] } : { ...storage },
-    set: async values => { const changes = {}; for (const [key, value] of Object.entries(values)) { changes[key] = { newValue: value }; storage[key] = value; } listeners.forEach(fn => fn(changes, 'local')); },
+    set: async values => { const changes = {}; for (const [key, value] of Object.entries(values)) { changes[key] = { newValue: value }; storage[key] = value; } setTimeout(() => listeners.forEach(fn => fn(changes, 'local')), 50); },
     remove: async keys => { const changes = {}; for (const key of keys) { changes[key] = { oldValue: storage[key] }; delete storage[key]; } listeners.forEach(fn => fn(changes, 'local')); }
   } } };
   window.confirm = message => { qa.confirmed = message; return true; };
