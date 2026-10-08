@@ -63,6 +63,13 @@ await page.evaluate(()=>{const r=document.querySelector('#cgpt-helper-overlay').
 await page.click("loc=css:.rail button[aria-label='BTW · 研究方向的問題']");
 assert(await page.evaluate(()=>document.querySelector('#cgpt-helper-overlay').shadowRoot.querySelector(".rail button[aria-label='BTW · 研究方向的問題']").getAttribute('aria-current')==='true'),'Scrolled dock item was not reachable');
 await page.screenshot({path:`${root}/draft/window-rail/rail-short.png`});
+// A narrow viewport shrinks the window so the dock stays on screen.
+await page.cdp('Emulation.setDeviceMetricsOverride',{width:400,height:700,deviceScaleFactor:1,mobile:false});
+const narrow=await page.evaluate(()=>{const b=document.querySelector('#cgpt-helper-overlay').shadowRoot.querySelector('.rail').getBoundingClientRect();return {left:b.left,right:b.right,width:innerWidth};});
+assert(narrow.left>=0 && narrow.right<=narrow.width,`Dock is off screen in a narrow viewport: ${JSON.stringify(narrow)}`);
+await page.click("loc=css:.rail button[aria-label='Gemini temporary chat']");
+assert(await page.evaluate(()=>document.querySelector('#cgpt-helper-overlay').shadowRoot.querySelector(".rail button[aria-label='Gemini temporary chat']").getAttribute('aria-current')==='true'),'Narrow dock item was not clickable');
+await page.screenshot({path:`${root}/draft/window-rail/rail-narrow.png`});
 await page.cdp('Emulation.clearDeviceMetricsOverride',{});
 await page.click("loc=css:.rail button[aria-label='BTW · 另一個支線']");
 // Switching keeps each frame and its draft; no frame is recreated.

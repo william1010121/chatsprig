@@ -96,7 +96,7 @@
           user-select: none;
         }
         .window {
-          min-width: 380px;
+          min-width: min(380px, calc(96vw - 60px));
           min-height: 420px;
           max-width: calc(96vw - 60px);
           max-height: 94vh;
