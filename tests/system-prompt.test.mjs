@@ -10,6 +10,7 @@ async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡
   let change;
   let revision = 0;
   let resolveSettings;
+  let rejectSettings;
   const initialSettings = { appendSystemPrompt: enabled, systemPrompt: prompt, systemPromptInterval: interval };
   class TextArea {
     constructor() { this._value = draft; this.isConnected = true; }
@@ -31,7 +32,7 @@ async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡
   }
   vm.runInNewContext(source, {
     location, HTMLTextAreaElement: TextArea, Event: class {},
-    cgptLoadSettings: () => delayedSettings ? new Promise(resolve => { resolveSettings = resolve; }) : Promise.resolve(initialSettings),
+    cgptLoadSettings: () => delayedSettings ? new Promise((resolve, reject) => { resolveSettings = resolve; rejectSettings = reject; }) : Promise.resolve(initialSettings),
     chrome: { storage: { onChanged: { addListener(fn) { change = fn; } } } },
     cgptChatContext: { getMode: () => mode,
       getCountState: () => ({ count: complete ? count : null, cadence: count, key: `${branch}:${complete ? count : 'local'}`, complete }),
@@ -46,6 +47,7 @@ async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡
   });
   await Promise.resolve();
   return { input, sent, button, location, dispatch,
+    async failSettings() { rejectSettings(new Error('Sync unavailable')); await new Promise(setImmediate); },
     async loadSettings() { resolveSettings(initialSettings); await new Promise(setImmediate); }, setHistory(value) { count = value ? 1 : 0; },
     setCount(value) { count = value; },
     setBranch(value) { branch = value; },
@@ -161,6 +163,35 @@ test('first send waits for settings, then sends once with the configured prefix'
   assert.equal(h.sent.length, 0);
   await h.loadSettings(); h.flush();
   assert.deepEqual(h.sent, ['使用繁體中文\n保持簡潔\n\n第一個問題']);
+});
+test('failed settings reads replay a waiting send once and allow later native sends', async () => {
+  for (const type of ['click', 'keydown', 'submit']) {
+    const h = await harness({ delayedSettings: true });
+    const target = type === 'click' ? h.button : type === 'submit' ? { contains: () => true } : h.input;
+    h.dispatch(type, { target }); h.dispatch(type, { target });
+    assert.equal(h.sent.length, 0);
+    await h.failSettings(); h.flush();
+    assert.deepEqual(h.sent, ['第一個問題']);
+    h.input.value = '第二個問題'; h.dispatch(type, { target });
+    assert.deepEqual(h.sent, ['第一個問題', '第二個問題']);
+  }
+});
+test('settings failure before a send does not block it and later synced preferences still apply', async () => {
+  const h = await harness({ delayedSettings: true });
+  await h.failSettings();
+  h.button.click();
+  assert.deepEqual(h.sent, ['第一個問題']);
+  h.change({ appendSystemPrompt: true, systemPrompt: '新的指示' });
+  h.input.value = '下一個問題'; h.button.click(); h.flush();
+  assert.deepEqual(h.sent, ['第一個問題', '新的指示\n\n下一個問題']);
+});
+test('settings failure still cancels a waiting send if its draft, route, input or button changes', async () => {
+  for (const mutate of [h => { h.input.value += ' edit'; }, h => { h.location.href = '/c/other'; },
+    h => { h.input.isConnected = false; }, h => { h.button.disabled = true; }]) {
+    const h = await harness({ delayedSettings: true });
+    h.button.click(); mutate(h); await h.failSettings(); h.flush();
+    assert.equal(h.sent.length, 0);
+  }
 });
 test('early sends retain disabled/empty behavior and cancel when their draft or route changes', async () => {
   for (const options of [{ enabled: false }, { prompt: '' }]) {

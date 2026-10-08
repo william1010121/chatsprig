@@ -13,6 +13,10 @@
   const settingsReady = cgptLoadSettings().then(value => {
     settings = { ...value, ...settings };
     settingsLoaded = true;
+  }).catch(() => {
+    // Keep native sends available if Sync fails. Unread preferences remain
+    // disabled, while any settings received through onChanged are preserved.
+    settingsLoaded = true;
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') return;
