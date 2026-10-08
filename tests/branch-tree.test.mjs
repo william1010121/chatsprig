@@ -78,3 +78,12 @@ test('inferred native branches join the tree but never duplicate /btw records', 
   assert.deepEqual([...result.keys], ['btwBranch:root:b1']);
   assert.deepEqual([...descendants(index, 'elsewhere').chats], []);
 });
+
+test('recently opening /btw records stay owned by btw.js; abandoned ones do not', () => {
+  const { branchIndex } = helpers();
+  const [key, branch] = record('root', 'b1', null);
+  const fresh = branchIndex({ [key]: { ...branch, createdAt: 1000 } }, 1000 + 60_000).get('root')[0];
+  const stale = branchIndex({ [key]: { ...branch, createdAt: 1000 } }, 1000 + 11 * 60_000).get('root')[0];
+  assert.equal(fresh.opening, true);
+  assert.equal(stale.opening, false);
+});

@@ -4,12 +4,14 @@
   const PREFIX = 'btwBranch:';
   const PARENTS = 'branchTreeParents';
   const ID = /^[a-zA-Z0-9-]+$/;
+  // btw.js still owns a branch that is opening; an older "opening" record was abandoned.
+  const OPENING_GRACE = 10 * 60 * 1000;
   // ChatGPT names a native branch "分支 · <source title>" / "Branch · <source title>".
   const BRANCH_TITLE = /^\s*(?:分支|Branch)\s*·\s*/i;
   const conversationId = url => /^https:\/\/chatgpt\.com\/c\/([a-zA-Z0-9-]+)(?:\?|$)/.exec(url || '')?.[1] || null;
   const baseTitle = title => { let base = title.trim(); while (BRANCH_TITLE.test(base)) base = base.replace(BRANCH_TITLE, ''); return base; };
   // Source conversation → its branches. /btw records carry a storage key; inferred links do not.
-  function branchIndex(items) {
+  function branchIndex(items, now = Date.now()) {
     const index = new Map();
     const add = (parent, record) => {
       if (!index.has(parent)) index.set(parent, []);
@@ -17,7 +19,8 @@
     };
     for (const [key, branch] of Object.entries(items || {})) {
       if (!ID.test(branch?.session || '') || !ID.test(branch?.id || '') || key !== `${PREFIX}${branch.session}:${branch.id}`) continue;
-      add(branch.session, { key, chat: conversationId(branch.url) });
+      const opening = branch.state === 'opening' && !(now - branch.createdAt > OPENING_GRACE);
+      add(branch.session, { key, chat: conversationId(branch.url), opening });
     }
     const known = new Set([...index.values()].flat().map(record => record.chat));
     for (const [chat, parent] of Object.entries(items?.[PARENTS] || {})) {
@@ -344,11 +347,13 @@
         if (response.ok || response.status === 404) deleted.add(chat); else failed.add(chat);
       } catch { failed.add(chat); }
     }
-    // Keep records only for chats that still exist; unopened or failed branch records go too.
-    const byKey = new Map([...index.values()].flat().filter(record => record.key).map(record => [record.key, record.chat]));
-    const stale = keys.filter(key => !failed.has(byKey.get(key)));
+    // Prune local links only after a complete success: a surviving descendant must stay
+    // reachable from the source, and a retry treats already-deleted chats (404) as done.
+    // Branches btw.js is still creating are left to it.
+    const opening = new Set([...index.values()].flat().filter(record => record.key && record.opening).map(record => record.key));
+    const stale = keys.filter(key => !opening.has(key));
     try {
-      if (extensionActive()) {
+      if (!failed.size && extensionActive()) {
         const parents = { ...((await chrome.storage.local.get(PARENTS))[PARENTS] || {}) };
         for (const chat of deleted) delete parents[chat];
         await chrome.storage.local.set({ [PARENTS]: parents });

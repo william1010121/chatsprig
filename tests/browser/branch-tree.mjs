@@ -17,13 +17,14 @@ const shim = `
   const list = [...document.querySelectorAll('ul')].map(ul => [...ul.querySelectorAll(':scope > li > a[data-sidebar-item][href^="/c/"]')])
     .sort((a, b) => b.length - a.length)[0];
   const id = link => link.getAttribute('href').split('/').pop().split('?')[0];
-  const [child, , grandchild, , parent] = list.map(id);
+  const [child, other, grandchild, , parent] = list.map(id);
   const storage = window.qaStorage = {}, listeners = [];
   const put = (session, branch, chat) => storage['btwBranch:' + session + ':' + branch] =
     { id: branch, session, title: branch, url: 'https://chatgpt.com/c/' + chat, createdAt: 1, state: 'ready' };
   put(parent, 'b1', child); put(child, 'b2', grandchild);
   storage['btwBranch:' + parent + ':b3'] = { id: 'b3', session: parent, title: 'unopened', url: 'https://chatgpt.com/branch/' + parent + '/m1', createdAt: 2, state: 'opening' };
-  window.qa = { parent, child, grandchild, fetches: [], assigned: null, confirmed: null };
+  window.qa = { parent, child, grandchild, other, fetches: [], assigned: null, confirmed: null, failOnce: grandchild, alerts: [] };
+  window.alert = message => qa.alerts.push(message);
   window.chrome = { runtime: { id: 'qa' }, storage: { onChanged: { addListener: fn => listeners.push(fn) }, local: {
     get: async key => key ? { [key]: storage[key] } : { ...storage },
     set: async values => { const changes = {}; for (const [key, value] of Object.entries(values)) { changes[key] = { newValue: value }; storage[key] = value; } listeners.forEach(fn => fn(changes, 'local')); },
@@ -32,6 +33,7 @@ const shim = `
   window.confirm = message => { qa.confirmed = message; return true; };
   window.fetch = async (url, init = {}) => {
     qa.fetches.push({ url, method: init.method || 'GET', auth: init.headers?.Authorization, body: init.body });
+    if (init.method === 'PATCH' && qa.failOnce && url.endsWith(qa.failOnce)) { qa.failOnce = null; return { ok: false, status: 500, json: async () => ({}) }; }
     return { ok: true, status: 200, json: async () => ({ accessToken: 'token' }) };
   };
   const location = { hostname: 'chatgpt.com', href: 'https://chatgpt.com/c/' + grandchild, pathname: '/c/' + grandchild, assign: url => qa.assigned = url };
@@ -72,16 +74,27 @@ assert(chip.text === 'Clean · 2' && chip.inside, 'Parent must offer Clean · 2 
 await page.screenshot({ path: `${root}/draft/branch-tree/clean-hover.png` });
 
 await page.evaluate(() => document.querySelector('#cgpt-helper-branch-clean').shadowRoot.querySelector('button').click());
+await page.waitForFunction(() => qa.alerts.length === 1);
+const partial = await page.evaluate(() => ({ keys: Object.keys(qaStorage).filter(key => key.startsWith('btwBranch:')).length, assigned: qa.assigned,
+  childHidden: getComputedStyle(document.querySelector(`a[href="/c/${qa.child}"]`).closest('li')).display }));
+console.log({ partial });
+assert(partial.keys === 3 && !partial.assigned && partial.childHidden === 'none', 'A partial failure must keep every local link and stay put');
+// Retry offers only the survivor and then prunes everything.
+await page.hover('loc=css:a[href="/c/' + await page.evaluate(() => qa.other) + '"]');
+await page.hover(`loc=css:a[href="/c/${await page.evaluate(() => qa.parent)}"]`);
+await page.waitForFunction(() => document.querySelector('#cgpt-helper-branch-clean')?.style.display === 'block');
+assert(await page.evaluate(() => document.querySelector('#cgpt-helper-branch-clean').shadowRoot.querySelector('button').textContent) === 'Clean · 1', 'Retry must count only the surviving branch');
+await page.evaluate(() => { qa.fetches = []; document.querySelector('#cgpt-helper-branch-clean').shadowRoot.querySelector('button').click(); });
 await page.waitForFunction(() => qa.assigned);
 const result = await page.evaluate(() => ({
-  fetches: qa.fetches, confirmed: qa.confirmed, keys: Object.keys(qaStorage), assigned: qa.assigned, parent: qa.parent,
+  fetches: qa.fetches, grandchild: qa.grandchild, confirmed: qa.confirmed, keys: Object.keys(qaStorage), assigned: qa.assigned, parent: qa.parent,
   hidden: [qa.child, qa.grandchild].map(id => getComputedStyle(document.querySelector(`a[href="/c/${id}"]`).closest('li')).display),
   parentVisible: getComputedStyle(document.querySelector(`a[href="/c/${qa.parent}"]`).closest('li')).display
 }));
 console.log(result);
 const patches = result.fetches.filter(item => item.method === 'PATCH');
-assert(patches.length === 2 && patches.every(item => item.auth === 'Bearer token' && item.body === '{"is_visible":false}'), 'Both branch chats must be deleted');
-assert(/Delete 2 branch chats/.test(result.confirmed), 'Deletion must be confirmed first');
+assert(patches.length === 1 && patches[0].url.endsWith(result.grandchild) && patches.every(item => item.auth === 'Bearer token' && item.body === '{"is_visible":false}'), 'Both branch chats must be deleted');
+assert(/Delete 1 branch chat /.test(result.confirmed), 'Deletion must be confirmed first');
 assert(result.keys.every(key => !key.startsWith('btwBranch:')), 'All branch records under the parent, including unopened ones, must be removed');
 assert(result.hidden.every(display => display === 'none') && result.parentVisible !== 'none', 'Only deleted rows are hidden');
 assert(result.assigned === `/c/${result.parent}`, 'Viewing a deleted branch must return to the parent');
