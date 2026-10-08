@@ -177,3 +177,22 @@ test('cancellation targets only the in-flight document and concurrent fills are 
   assert.equal(h.routed.filter(call => call.message.type === 'sidebarFill').length, 1);
   h.release(); await pending;
 });
+
+test('Explain with Gemini routes ChatGPT responses to the Gemini document; ordinary selections remain same-service', async () => {
+  const h = backgroundHarness();
+  await h.dispatch({ type: 'sidebarFrameIdentity', provider: 'gemini' }, {
+    tab: { id: 7 }, frameId: 2, documentId: 'gemini-document', url: 'https://gemini.google.com/app'
+  });
+  const sender = { tab: { id: 7 }, frameId: 0, url: 'https://chatgpt.com/c/test' };
+  assert.equal(await h.dispatch({ type: 'askSidebar', provider: 'gemini', text: 'wrong route' }, sender), undefined);
+  assert.equal(h.routed.length, 0);
+  const result = await h.dispatch({ type: 'explainGemini', provider: 'gemini', text: 'explain this to me\n\nComplete response', autoSend: false }, sender);
+  assert.equal(result.message, 'Selection sent.');
+  assert.equal(h.routed[1].options.documentId, 'gemini-document');
+  assert.equal(h.routed[1].message.text, 'explain this to me\n\nComplete response');
+  assert.equal(h.routed[1].message.autoSend, false);
+  for (const invalid of [{ ...sender, frameId: 1 }, { ...sender, url: 'https://example.com/' }, { ...sender, url: 'https://gemini.google.com/app' }]) {
+    assert.equal(await h.dispatch({ type: 'explainGemini', provider: 'gemini', text: 'response' }, invalid), undefined);
+  }
+  assert.equal(h.routed.length, 2);
+});

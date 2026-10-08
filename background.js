@@ -122,7 +122,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  if (['askSidebar', 'cancelSidebar'].includes(message.type)) {
+  if (['askSidebar', 'explainGemini', 'cancelSidebar'].includes(message.type)) {
     if (!sender.tab || sender.frameId !== 0) return false;
     if (message.type === 'cancelSidebar') {
       const request = sidebarRequests.get(sender.tab.id);
@@ -134,7 +134,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
     const provider = message.provider || 'chatgpt';
-    if (providerForUrl(sender.url) !== provider || typeof message.text !== 'string' || !message.text.trim()) return false;
+    const sourceProvider = providerForUrl(sender.url);
+    const allowedSource = message.type === 'explainGemini'
+      ? sourceProvider === 'chatgpt' && provider === 'gemini'
+      : sourceProvider === provider;
+    if (!allowedSource || typeof message.text !== 'string' || !message.text.trim()) return false;
     askSidebar(message, sender).then(sendResponse);
     return true;
   }

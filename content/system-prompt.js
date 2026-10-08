@@ -7,9 +7,13 @@
   const inputSelector = '#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown][contenteditable="true"]';
   const sendSelector = '[data-testid="send-button"], #composer-submit-button, form[data-thread-find-composer] button[type="submit"]';
   let settings = {};
+  let settingsLoaded = false;
   let pending = false;
   let replaying = false;
-  cgptLoadSettings().then(value => { settings = value; });
+  const settingsReady = cgptLoadSettings().then(value => {
+    settings = { ...value, ...settings };
+    settingsLoaded = true;
+  });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') return;
     for (const key of ['appendSystemPrompt', 'systemPrompt', 'systemPromptInterval']) {
@@ -101,6 +105,25 @@
       if (!event.target.closest?.(sendSelector)) return;
     } else if (!event.target.contains(input)) return;
     if (pending) { event.preventDefault(); event.stopImmediatePropagation(); return; }
+    // A first send can arrive before Chrome Sync has returned its settings.
+    // Hold that intent instead of silently sending without the configured prefix.
+    if (!settingsLoaded) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      pending = true;
+      const url = location.href;
+      const draft = readText(input);
+      settingsReady.then(() => {
+        pending = false;
+        if (location.href !== url || !input.isConnected || readText(input) !== draft) return;
+        const send = document.querySelector(sendSelector);
+        if (send && !send.disabled && send.getAttribute('aria-disabled') !== 'true') send.click();
+      }).catch(() => { pending = false; });
+      return;
+    }
+    processSend(event, input);
+  }
+  function processSend(event, input) {
     const prompt = typeof settings.systemPrompt === 'string' ? settings.systemPrompt.trim() : '';
     const history = eligibleHistory();
     if (settings.appendSystemPrompt !== true || !prompt || !history) {

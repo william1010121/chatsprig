@@ -7,7 +7,7 @@
     <a href="https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe"><img src="https://img.shields.io/badge/Chrome_Web_Store-Install-174D3B?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Install ChatSprig from the Chrome Web Store"></a>
     <a href="https://github.com/william1010121/chatsprig/stargazers"><img src="https://img.shields.io/badge/%E2%98%85-Star%20on%20GitHub-174D3B?style=for-the-badge" alt="Star on GitHub"></a>
     <img src="https://img.shields.io/badge/Chrome-Manifest%20V3-FAF7EF?style=for-the-badge&logo=googlechrome&logoColor=174D3B" alt="Chrome Manifest V3">
-    <img src="https://img.shields.io/badge/version-2.3.2-174D3B?style=for-the-badge" alt="Version 2.3.2">
+    <img src="https://img.shields.io/badge/version-2.4.0-174D3B?style=for-the-badge" alt="Version 2.4.0">
   </p>
   <p><a href="#meet-chatsprig">Features</a> · <a href="#get-started">Get started</a> · <a href="#keyboard-shortcuts">Shortcuts</a> · <a href="#privacy--permissions">Privacy</a></p>
 </div>
@@ -34,7 +34,7 @@ ChatSprig opens the ChatGPT and Gemini websites directly. On either service’s 
 
 ## Get started
 
-**Chrome Web Store:** [install ChatSprig](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The `main` branch contains version 2.3.2 with Gemini, Ask in sidebar, Compact view controls, custom prompts, and skill completion.
+**Chrome Web Store:** [install ChatSprig](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The local extension is version 2.4.0 with Gemini, Ask in sidebar, Compact view controls, custom prompts, and skill completion.
 
 ### Demo
 
@@ -71,7 +71,7 @@ The fixed Alt/Option+K, Alt/Option+G, and Alt/Option+N page shortcuts also work 
 - `//system-prompt` inserts the current text from Settings → System prompt wherever skill completion is available. It is separate from automatic append, so using both may repeat the text.
 - Show or hide the launcher, including specifically on ChatGPT websites.
 - Enable LaTeX copying and configure cross-site sign-in compatibility.
-- Toggle **Compact view** with the control at the bottom of ChatGPT’s model picker in both Chat and Work. It uses comfortable paragraph/list spacing, 1.65 line height, and 12% side margins. Settings → Compact view has a **Join adjacent text paragraphs** option, on by default; turn it off to keep paragraph breaks. The choices sync across tabs and also apply inside the overlay; turning Compact view off restores ChatGPT’s layout.
+- Toggle **Compact view** with the control at the bottom of ChatGPT’s model picker in both Chat and Work. It uses comfortable paragraph/list spacing, with default 1.65 line height and 12% side margins. The gear at the upper right of the Compact view control opens live sliders for line spacing (1.2–2.4) and symmetric side margins (0–25%). Opening the panel enables Compact view for immediate preview; releasing a slider saves the choice across tabs. Reset restores 1.65 and 12%. Intelligent UI cards retain their native responsive width and internal typography as the surrounding prose changes. Settings → Compact view has a **Join adjacent text paragraphs** option, on by default; turn it off to keep paragraph breaks. The choices sync across tabs and also apply inside the overlay; turning Compact view off restores ChatGPT’s layout.
 
 ### Gemini and switching services
 
@@ -84,6 +84,8 @@ Gemini loads `/app`, activates Temporary chat, and verifies that mode before exp
 In Settings, **Default Gemini model** selects Flash-Lite, Flash, or Pro for new temporary chats. The default leaves Gemini’s current choice unchanged. Switching back to an existing conversation does not change its model. If a requested model is unavailable or cannot be verified, initialization reports an error instead of silently using another model.
 
 Gemini supports the overlay and Ask in sidebar. LaTeX copying and Compact view remain ChatGPT-only.
+
+On the main ChatGPT page, the Gemini sparkle icon in each response’s action row has the tooltip **explain with gemini**. It takes the complete response from ChatGPT’s native Copy action and passes that exact text to the existing Gemini floating chat. Settings → Explain with Gemini lets you edit the prefix; the default is `explain this to me`. An empty prefix sends only the copied response. The action preserves the user’s clipboard. It follows the shared Auto-send preference and preserves existing drafts; it does not send the surrounding conversation.
 
 ### Ask in sidebar
 

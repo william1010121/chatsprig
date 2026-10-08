@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source = fs.readFileSync(new URL('../content/system-prompt.js', import.meta.url), 'utf8');
-async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡潔', history = false, path = '/', draft = '第一個問題', gemini = false, disabled = false, count = history ? 1 : 0, interval = 0, mode = 'chat', complete = !path.includes('/c/'), branch = 'original' } = {}) {
+async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡潔', history = false, path = '/', draft = '第一個問題', gemini = false, disabled = false, count = history ? 1 : 0, interval = 0, mode = 'chat', complete = !path.includes('/c/'), branch = 'original', delayedSettings = false } = {}) {
   const listeners = {};
   const timers = [];
   const sent = [];
   let change;
   let revision = 0;
+  let resolveSettings;
+  const initialSettings = { appendSystemPrompt: enabled, systemPrompt: prompt, systemPromptInterval: interval };
   class TextArea {
     constructor() { this._value = draft; this.isConnected = true; }
     get value() { return this._value; }
@@ -29,7 +31,7 @@ async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡
   }
   vm.runInNewContext(source, {
     location, HTMLTextAreaElement: TextArea, Event: class {},
-    cgptLoadSettings: async () => ({ appendSystemPrompt: enabled, systemPrompt: prompt, systemPromptInterval: interval }),
+    cgptLoadSettings: () => delayedSettings ? new Promise(resolve => { resolveSettings = resolve; }) : Promise.resolve(initialSettings),
     chrome: { storage: { onChanged: { addListener(fn) { change = fn; } } } },
     cgptChatContext: { getMode: () => mode,
       getCountState: () => ({ count: complete ? count : null, cadence: count, key: `${branch}:${complete ? count : 'local'}`, complete }),
@@ -43,7 +45,8 @@ async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡
     } }
   });
   await Promise.resolve();
-  return { input, sent, button, location, dispatch, setHistory(value) { count = value ? 1 : 0; },
+  return { input, sent, button, location, dispatch,
+    async loadSettings() { resolveSettings(initialSettings); await new Promise(setImmediate); }, setHistory(value) { count = value ? 1 : 0; },
     setCount(value) { count = value; },
     setBranch(value) { branch = value; },
     setMode(value) { mode = value; revision++; },
@@ -150,4 +153,24 @@ test('cancelling a switched-mode send preserves user edits made after insertion'
   const h = await harness(); h.button.click(); h.input.value += ' edited';
   const edited = h.input.value; h.setMode('work'); h.flush();
   assert.equal(h.sent.length, 0); assert.equal(h.input.value, edited);
+});
+
+test('first send waits for settings, then sends once with the configured prefix', async () => {
+  const h = await harness({ delayedSettings: true });
+  h.button.click(); h.button.click();
+  assert.equal(h.sent.length, 0);
+  await h.loadSettings(); h.flush();
+  assert.deepEqual(h.sent, ['使用繁體中文\n保持簡潔\n\n第一個問題']);
+});
+test('early sends retain disabled/empty behavior and cancel when their draft or route changes', async () => {
+  for (const options of [{ enabled: false }, { prompt: '' }]) {
+    const h = await harness({ delayedSettings: true, ...options });
+    h.button.click(); await h.loadSettings(); h.flush();
+    assert.deepEqual(h.sent, ['第一個問題']);
+  }
+  for (const mutate of [h => { h.input.value += ' edit'; }, h => { h.location.href = '/c/other'; }]) {
+    const h = await harness({ delayedSettings: true });
+    h.button.click(); mutate(h); await h.loadSettings(); h.flush();
+    assert.equal(h.sent.length, 0);
+  }
 });

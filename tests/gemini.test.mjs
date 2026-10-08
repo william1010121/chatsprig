@@ -203,3 +203,11 @@ test('cancelling a Gemini fill during draft verification prevents automatic send
   await pending;
   assert.equal(h.sends(), 0);
 });
+
+test('Explain action opens the existing Gemini frame and uses its dedicated cross-service request', async () => {
+  const h = overlayHarness(); await tick();
+  await h.ask('explain this to me\n\nComplete response', 'gemini', true);
+  assert.equal(h.sent.at(-1).type, 'explainGemini');
+  assert.equal(h.sent.at(-1).provider, 'gemini');
+  assert.equal(h.created[0].name, 'gemini_helper_overlay_frame');
+});

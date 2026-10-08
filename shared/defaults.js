@@ -6,6 +6,7 @@
   // and the options page; background.js imports shared/defaults.mjs instead.
   const DEFAULT_SETTINGS = {
     targetUrl: 'https://chatgpt.com/?temporary-chat=true',
+    geminiExplainPrompt: 'explain this to me',
     geminiModel: 'current', // 'current' | 'flash-lite' | 'flash' | 'pro'
     altKWhenOpen: 'hide', // 'hide' | 'focus'
     windowWidth: 1100,
@@ -18,6 +19,8 @@
     enableLatexCopy: true,
     compactView: false,
     compactJoinParagraphs: true,
+    compactLineHeight: 1.65,
+    compactSideMargin: 12,
     autoSendAskInSidebar: true,
     appendSystemPrompt: false,
     systemPrompt: '',
