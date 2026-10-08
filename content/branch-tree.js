@@ -95,7 +95,7 @@
   function stop() {
     if (invalidated) return;
     invalidated = true;
-    lifetime.abort(); observer?.disconnect(); window.clearInterval(watch);
+    lifetime.abort(); observer?.disconnect(); window.clearInterval(watch); window.clearTimeout(retryTimer);
     unmark(new Set(), new Set());
     document.getElementById(STYLE_ID)?.remove(); host?.remove();
   }
@@ -220,7 +220,9 @@
     throw new Error('Not signed in');
   }
   // Each native branch is looked up once; the answer is kept in local storage.
-  const nodes = new Map(), tried = new Map();
+  // tried: settled lookups by candidate set. retry: failed lookups wait with exponential backoff.
+  const nodes = new Map(), tried = new Map(), retry = new Map();
+  let retryTimer = 0;
   let inferring = false;
   async function conversation(id) {
     if (!nodes.has(id)) {
@@ -242,7 +244,7 @@
       const candidates = [...new Set(chats.filter(other => other.id !== chat.id && baseTitle(other.title) === base).map(other => other.id))];
       // Retry only when a new candidate scrolls into the sidebar.
       const signature = candidates.sort().join(',');
-      if (!candidates.length || tried.get(chat.id) === signature) continue;
+      if (!candidates.length || tried.get(chat.id) === signature || retry.get(chat.id)?.at > Date.now()) continue;
       pending.push({ id: chat.id, candidates, signature });
     }
     if (!pending.length) return;
@@ -254,9 +256,15 @@
         try {
           const child = await conversation(id);
           const parent = pickParent(child, await Promise.all(candidates.map(conversation)));
-          tried.set(id, signature);
+          tried.set(id, signature); retry.delete(id);
           if (parent) found[id] = parent;
-        } catch { tried.set(id, signature); }
+        } catch {
+          // Offline, 429 or 5xx: try again later instead of treating the comparison as settled.
+          const wait = Math.min((retry.get(id)?.wait || 15000) * 2, 10 * 60 * 1000);
+          retry.set(id, { wait, at: Date.now() + wait });
+          window.clearTimeout(retryTimer);
+          retryTimer = window.setTimeout(schedule, Math.min(...[...retry.values()].map(item => item.at)) - Date.now());
+        }
       }
       if (Object.keys(found).length && extensionActive()) {
         const current = (await chrome.storage.local.get(PARENTS))[PARENTS] || {};
