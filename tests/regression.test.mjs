@@ -75,7 +75,7 @@ test('early overlay request waits for settings and creates a sandboxed in-page f
   const body = { appendChild(frame) { frames.push(frame); } };
   const shadow = {
     innerHTML: '', addEventListener() {},
-    querySelector(selector) { return selector === '.body' ? body : { style: {}, setAttribute() {}, querySelector() { return {}; } }; }
+    querySelector(selector) { return selector === '.body' ? body : selector === '.rail' ? { replaceChildren() {}, appendChild() {} } : { style: {}, setAttribute() {}, querySelector() { return {}; } }; }
   };
   const host = {
     attachShadow: () => shadow,
@@ -94,6 +94,7 @@ test('early overlay request waits for settings and creates a sandboxed in-page f
       documentElement: { appendChild() {} },
       createElement(tag) {
         if (tag === 'div') return host;
+        if (tag !== 'iframe') return { dataset: {}, setAttribute() {}, appendChild() {} };
         assert.equal(tag, 'iframe');
         return { style: {}, setAttribute(key, value) { this[key] = value; }, addEventListener() {}, remove() {} };
       }

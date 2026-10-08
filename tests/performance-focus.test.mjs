@@ -88,6 +88,7 @@ function overlayHarness() {
   } };
   const shadow = { addEventListener() {}, querySelector(selector) {
     if (selector === '.body') return { appendChild() {} };
+    if (selector === '.rail') return { replaceChildren() {}, appendChild() {} };
     if (selector === '.frame-status') return status;
     if (!labels.has(selector)) labels.set(selector, node());
     return labels.get(selector);
@@ -102,6 +103,7 @@ function overlayHarness() {
       storage: { onChanged: { addListener() {} } } },
     document: { documentElement: { appendChild() {} }, createElement(tag) {
       if (tag === 'div') return host;
+      if (tag !== 'iframe') return { ...node(), dataset: {}, appendChild() {} };
       const frame = { ...node(), sent: [], focusCount: 0, focus() { this.focusCount++; },
         addEventListener(type, listener) { if (type === 'load') this.load = listener; }, remove() {},
         contentWindow: { postMessage(data, origin) { frame.sent.push({ data, origin }); } } };
