@@ -96,9 +96,9 @@
           user-select: none;
         }
         .window {
-          min-width: 380px;
+          min-width: min(380px, calc(96vw - 60px));
           min-height: 420px;
-          max-width: 96vw;
+          max-width: calc(96vw - 60px);
           max-height: 94vh;
           background: #ffffff;
           color: #111827;
@@ -174,6 +174,100 @@
           font-size: 14px; line-height: 1.6;
         }
         .frame-status button { width: auto; padding: 8px 16px; background: #111827; }
+        .stage {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          pointer-events: none;
+        }
+        /* Floating dock beside the window: one button per live chat. */
+        .rail {
+          pointer-events: auto;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          padding: 6px;
+          max-height: 88vh;
+          box-sizing: border-box;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          scrollbar-width: none;
+          background: rgba(17, 24, 39, 0.94);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 14px;
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.32);
+          -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(12px);
+        }
+        .rail::-webkit-scrollbar { display: none; }
+        .rail hr {
+          width: 22px;
+          margin: 2px 0;
+          border: 0;
+          border-top: 1px solid rgba(255, 255, 255, 0.14);
+        }
+        .rail button {
+          position: relative;
+          flex: 0 0 auto;
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          color: #d1d5db;
+          font-size: 13px;
+          font-weight: 600;
+          transition: background-color 0.15s, color 0.15s, transform 0.15s;
+        }
+        .rail button:hover { background: rgba(255, 255, 255, 0.1); color: #ffffff; }
+        .rail button:active { transform: scale(0.94); }
+        .rail button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 1px; }
+        .rail button[aria-current="true"] { background: #ffffff; color: #111827; }
+        .rail button[aria-current="true"]::before {
+          content: "";
+          position: absolute;
+          left: -5px;
+          top: 9px;
+          bottom: 9px;
+          width: 3px;
+          border-radius: 0 3px 3px 0;
+          background: #ffffff;
+        }
+        .rail button.branch { color: #ffffff; }
+        .rail button.branch > span {
+          width: 24px;
+          height: 24px;
+          display: grid;
+          place-items: center;
+          border-radius: 7px;
+          background: var(--chip, #6366f1);
+          font-size: 12px;
+        }
+        .rail button[data-hue="0"] { --chip: #6366f1; }
+        .rail button[data-hue="1"] { --chip: #0ea5e9; }
+        .rail button[data-hue="2"] { --chip: #10b981; }
+        .rail button[data-hue="3"] { --chip: #f59e0b; }
+        .rail button[data-hue="4"] { --chip: #ef4444; }
+        .rail button[data-hue="5"] { --chip: #d946ef; }
+        /* Labels open toward the window, so the viewport edge never clips them. */
+        .rail-tip {
+          position: fixed;
+          z-index: 1;
+          max-width: 280px;
+          padding: 6px 10px;
+          border-radius: 8px;
+          background: #111827;
+          color: #ffffff;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+          font-size: 12px;
+          font-weight: 500;
+          line-height: 1.4;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          pointer-events: none;
+          transform: translate(-100%, -50%);
+        }
+        .rail-tip[hidden] { display: none; }
         .footer {
           height: 24px;
           flex: 0 0 auto;
@@ -193,7 +287,7 @@
         }
         .muted { opacity: 0.82; }
       </style>
-      <div class="overlay">
+      <div class="overlay"><div class="stage">
         <section class="window" role="dialog" aria-label="ChatGPT temporary chat">
           <div class="header">
             <div class="title">ChatSprig · Temporary Chat</div>
@@ -209,7 +303,9 @@
             <span class="muted">⌖ focus input</span>
           </div>
         </section>
-      </div>
+        <nav class="rail" aria-label="Open chats"></nav>
+      </div></div>
+      <div class="rail-tip" role="tooltip" hidden></div>
     `;
 
     shadow.addEventListener('click', (event) => {
@@ -220,7 +316,14 @@
       if (action === 'focus') requestFocusPrompt();
       else if (action === 'refresh') refresh();
       else if (action === 'close') hide();
+      else if (action === 'switch') switchTo(button.dataset.key);
     });
+    const railButton = event => event.target instanceof Element ? event.target.closest('.rail button') : null;
+    shadow.addEventListener('pointerover', event => showRailTip(railButton(event)));
+    shadow.addEventListener('focusin', event => showRailTip(railButton(event)));
+    shadow.addEventListener('pointerout', hideRailTip);
+    shadow.addEventListener('focusout', hideRailTip);
+    shadow.addEventListener('scroll', hideRailTip, { capture: true, passive: true });
 
     document.documentElement.appendChild(host);
     applySize();
@@ -229,7 +332,7 @@
   function applySize() {
     const win = shadow?.querySelector('.window');
     if (!win || !settings) return;
-    win.style.width = `min(${Number(settings.windowWidth) || 1100}px, 94vw)`;
+    win.style.width = `min(${Number(settings.windowWidth) || 1100}px, calc(94vw - 60px))`;
     win.style.height = `min(${Number(settings.windowHeight) || 760}px, 88vh)`;
   }
 
@@ -254,6 +357,70 @@
       value.frame.style.visibility = (key === 'gemini' || key.startsWith('btw:')) && !value.ready ? 'hidden' : '';
     }
     askStatus(record?.askStatus || '⌖ focus input');
+    renderRail();
+  }
+
+  const RAIL_ICONS = {
+    chatgpt: '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A2.5 2.5 0 0 1 4 13.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+    gemini: '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C10.8 8.3 8.3 10.8 2 12c6.3 1.2 8.8 3.7 10 10 1.2-6.3 3.7-8.8 10-10-6.3-1.2-8.8-3.7-10-10Z" fill="currentColor"/></svg>'
+  };
+
+  // One button per live frame, so switching never recreates a conversation.
+  function renderRail() {
+    const rail = shadow.querySelector('.rail');
+    // Rebuilding drops the focused button; hand focus to its replacement.
+    const focusedKey = shadow.activeElement?.closest?.('.rail button')?.dataset.key;
+    hideRailTip();
+    rail.replaceChildren();
+    let branches = 0;
+    const entries = [...frames].sort(([, a], [, b]) => Number(!!a.branch) - Number(!!b.branch));
+    for (const [key, record] of entries) {
+      const branch = record.branch;
+      if (branch && !branches++ && rail.childElementCount) rail.appendChild(document.createElement('hr'));
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.action = 'switch';
+      button.dataset.key = key;
+      const label = branch ? `BTW · ${branch.title}` : key === 'gemini' ? 'Gemini temporary chat' : 'ChatGPT temporary chat';
+      button.dataset.label = label;
+      button.setAttribute('aria-label', label);
+      button.setAttribute('aria-current', String(key === frameKey()));
+      if (branch) {
+        button.className = 'branch';
+        button.dataset.hue = String([...branch.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 6);
+        const chip = document.createElement('span');
+        chip.textContent = [...(branch.title || '').trim()][0] || '↳';
+        button.appendChild(chip);
+      } else {
+        button.innerHTML = RAIL_ICONS[key] || RAIL_ICONS.chatgpt;
+      }
+      rail.appendChild(button);
+      if (key === focusedKey) button.focus({ preventScroll: true });
+    }
+  }
+
+  function showRailTip(button) {
+    const tip = shadow.querySelector('.rail-tip');
+    if (!button) { tip.hidden = true; return; }
+    const rail = shadow.querySelector('.rail').getBoundingClientRect();
+    const rect = button.getBoundingClientRect();
+    tip.textContent = button.dataset.label;
+    tip.style.left = `${rail.left - 8}px`;
+    tip.style.top = `${rect.top + rect.height / 2}px`;
+    tip.style.maxWidth = `${Math.max(120, Math.min(280, rail.left - 16))}px`;
+    tip.hidden = false;
+  }
+
+  function hideRailTip() {
+    const tip = shadow?.querySelector('.rail-tip');
+    if (tip) tip.hidden = true;
+  }
+
+  function switchTo(key) {
+    const record = frames.get(key);
+    if (!record || key === frameKey()) return;
+    if (record.branch) show({ provider: 'chatgpt', branch: record.branch, focus: true });
+    else show({ provider: key, focus: true });
   }
 
   function createOrReplaceIframe() {
@@ -270,7 +437,7 @@
     frame.allow = 'clipboard-read; clipboard-write; microphone';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
     frame.src = activeBranch ? activeBranch.url : key === 'gemini' ? 'https://gemini.google.com/app' : settings.targetUrl;
-    const record = { frame, ready: key !== 'gemini' && !activeBranch, loaded: false, error: '', timer: null };
+    const record = { frame, branch: activeBranch, ready: key !== 'gemini' && !activeBranch, loaded: false, error: '', timer: null };
     frames.set(key, record);
     iframe = frame;
     if (key === 'gemini') {
@@ -336,6 +503,7 @@
       record.frame.remove();
       frames.delete(key);
     }
+    if (idle.length > MAX_IDLE_BRANCH_FRAMES) renderRail();
   }
 
   function hide() {

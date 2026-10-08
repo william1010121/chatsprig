@@ -41,7 +41,7 @@
       }
     }}
   };
-  window.cgptLoadSettings = async()=>({targetUrl:'https://chatgpt.com/?temporary-chat=true',windowWidth:860,windowHeight:620,hideChatgptSidebar:false,focusPromptOnOpen:true,altKWhenOpen:'hide'});
+  window.cgptLoadSettings = async()=>({targetUrl:'https://chatgpt.com/?temporary-chat=true',windowWidth:860,windowHeight:620,hideChatgptSidebar:false,focusPromptOnOpen:true,altKWhenOpen:'hide',...window.qaSettings});
   new Function('chrome','loadSettings','DEFAULT_SETTINGS',sources['background.js'].replace(/^import .*;\n/,''))(bg,window.cgptLoadSettings,{});
   const srcDescriptor = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype,'src');
   Object.defineProperty(HTMLIFrameElement.prototype,'src',{get:srcDescriptor.get,set(url){

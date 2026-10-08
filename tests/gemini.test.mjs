@@ -14,6 +14,7 @@ function overlayHarness(session = {}) {
   const status = { ...node(), querySelector(selector) { return labels.get(selector) || (labels.set(selector, node()), labels.get(selector)); } };
   const shadow = { addEventListener() {}, querySelector(selector) {
     if (selector === '.body') return { appendChild() {} };
+    if (selector === '.rail') return { replaceChildren() {}, appendChild() {} };
     if (selector === '.frame-status') return status;
     if (!labels.has(selector)) labels.set(selector, node());
     return labels.get(selector);
@@ -28,6 +29,7 @@ function overlayHarness(session = {}) {
     chrome: { runtime: { onMessage: { addListener(fn) { listener = fn; } }, sendMessage: async (message) => { sent.push(message); return { message: 'filled' }; } }, storage: { onChanged: { addListener() {} } } },
     document: { documentElement: { appendChild() {} }, createElement(tag) {
       if (tag === 'div') return host;
+      if (tag !== 'iframe') return { ...node(), dataset: {}, appendChild() {} };
       const frame = { ...node(), focusCount: 0, focus() { this.focusCount++; }, addEventListener() {},
         remove() { this.removed = true; }, contentWindow: { postMessage() {} } };
       created.push(frame); return frame;

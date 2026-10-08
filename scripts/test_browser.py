@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('test', choices=['btw', 'btw-completion', 'btw-frame-limit', 'btw-invalidation', 'compact-margins'])
+parser.add_argument('test', choices=['btw', 'btw-completion', 'btw-frame-limit', 'btw-invalidation', 'compact-margins', 'window-rail'])
 args = parser.parse_args()
 root = Path(os.environ.get('CHATSPRIG_ROOT') or Path(__file__).resolve().parent.parent).resolve()
 source = (root / 'tests' / 'browser' / f'{args.test}.mjs').read_text()
