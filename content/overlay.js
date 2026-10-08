@@ -642,6 +642,33 @@
     }
   };
 
+  // The sidebar's Clean deleted these chats. Drop their branch frames; a deleted branch
+  // that is showing gives way to the main ChatGPT chat.
+  globalThis.cgptCloseBtwChats = chats => {
+    const gone = new Set(chats);
+    const chatOf = record => {
+      try {
+        const id = /^\/c\/([a-zA-Z0-9-]+)/.exec(record.frame.contentWindow.location.pathname)?.[1];
+        if (id) return id;
+      } catch {}
+      return /^https:\/\/chatgpt\.com\/c\/([a-zA-Z0-9-]+)/.exec(record.branch?.url || '')?.[1] || null;
+    };
+    let showing = false, changed = false;
+    for (const [key, record] of [...frames]) {
+      if (!key.startsWith('btw:') || !gone.has(chatOf(record))) continue;
+      if (key === frameKey()) showing = true;
+      window.clearTimeout(record.timer);
+      record.frame.remove();
+      frames.delete(key);
+      changed = true;
+    }
+    if (showing) {
+      if (isOpen()) show({ provider: 'chatgpt' });
+      else { cancelAsk(); cancelFocusPrompt(); activeBranch = null; iframe = null; }
+    }
+    if (changed) renderRail();
+  };
+
   globalThis.cgptAskInSidebar = async (text, requestedProvider = 'chatgpt', explainResponse = false) => {
     await ready;
     if (typeof text !== 'string' || !text.trim()) return;

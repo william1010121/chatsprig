@@ -22,6 +22,7 @@ const shim = `
   storage['btwBranch:' + ids.parent + ':b3'] = { id: 'b3', session: ids.parent, title: 'opening', url: 'https://chatgpt.com/branch/' + ids.parent + '/m1', createdAt: Date.now(), state: 'opening' };
   window.qa = { ...ids, fetches: [], assigned: null, confirmed: null, failOnce: ids.grandchild, failLookupOnce: ids.nativeBranch, alerts: [] };
   window.alert = message => qa.alerts.push(message);
+  window.cgptCloseBtwChats = chats => { qa.closed = chats; };
   window.chrome = { runtime: { id: 'qa' }, storage: { onChanged: { addListener: fn => listeners.push(fn) }, local: {
     get: async key => key ? { [key]: storage[key] } : { ...storage },
     set: async values => { const changes = {}; for (const [key, value] of Object.entries(values)) { changes[key] = { newValue: value }; storage[key] = value; } listeners.forEach(fn => fn(changes, 'local')); },
@@ -114,13 +115,14 @@ await page.evaluate(() => { qa.fetches = []; document.querySelector('#cgpt-helpe
 await page.waitForFunction(() => qa.assigned);
 const result = await page.evaluate(() => ({
   patches: qa.fetches.filter(item => item.method === 'PATCH'), confirmed: qa.confirmed, assigned: qa.assigned, parent: qa.parent, grandchild: qa.grandchild,
-  keys: Object.keys(qaStorage).filter(key => key.startsWith('btwBranch:')).map(key => key.split(':').pop()).sort(),
+  keys: Object.keys(qaStorage).filter(key => key.startsWith('btwBranch:')).map(key => key.split(':').pop()).sort(), closed: [...qa.closed].sort(), child: qa.child,
   hidden: [qa.child, qa.grandchild].map(chat => getComputedStyle(document.querySelector(`a[href="/c/${chat}"]`).closest('[role="listitem"]')).display),
   parentVisible: getComputedStyle(document.querySelector(`a[href="/c/${qa.parent}"]`).closest('[role="listitem"]')).display
 }));
 console.log(result);
 assert(result.patches.length === 1 && result.patches[0].url.endsWith(result.grandchild) && result.patches[0].auth === 'Bearer token' &&
   result.patches[0].body === '{"is_visible":false}', 'Retry must delete only the surviving branch');
+assert(JSON.stringify(result.closed) === JSON.stringify([result.child, result.grandchild].sort()), 'Deleted chats must be closed in the floating window');
 assert(/Delete 1 branch chat /.test(result.confirmed), 'Deletion must be confirmed first');
 assert(JSON.stringify(result.keys) === '["b3","b4"]', 'Only the opening branch and unrelated records remain');
 assert(result.hidden.every(display => display === 'none') && result.parentVisible !== 'none', 'Only deleted rows are hidden');

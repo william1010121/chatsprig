@@ -228,7 +228,7 @@
   // tried: candidates compared without a match. retry: failed lookups wait with exponential backoff.
   const tried = new Map(), retry = new Map();
   let retryTimer = 0;
-  let inferring = false;
+  let inferring = false, rerun = false;
   // Conversations keep growing, so mappings are cached for one inference pass only.
   async function conversation(id, nodes) {
     if (!nodes.has(id)) {
@@ -242,7 +242,8 @@
     return nodes.get(id);
   }
   async function infer(chats) {
-    if (inferring || busy) return;
+    // Rows that load during a pass are inferred right after it.
+    if (inferring || busy) { rerun = true; return; }
     const known = items[PARENTS] || {};
     const btw = new Set([...index.values()].flat().filter(record => record.key).map(record => record.chat));
     const pending = [], waiting = new Set();
@@ -286,7 +287,10 @@
         await chrome.storage.local.set({ [PARENTS]: { ...current, ...found } });
       }
     } catch (error) { storageError(error); }
-    finally { inferring = false; armRetry(); }
+    finally {
+      inferring = false; armRetry();
+      if (rerun) { rerun = false; schedule(); }
+    }
   }
   // Wake for the earliest outstanding retry, whichever lookups succeeded meanwhile.
   function armRetry() {
@@ -388,6 +392,8 @@
         if (stale.length) await chrome.storage.local.remove(stale);
       }
     } catch (error) { storageError(error); }
+    // A deleted branch may still be open in the floating window.
+    if (deleted.size) globalThis.cgptCloseBtwChats?.([...deleted]);
     busy = false;
     if (chip) chip.disabled = false;
     hideChip(); apply();
