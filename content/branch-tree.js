@@ -226,10 +226,11 @@
   // A native branch is compared once per candidate set; the answer and the candidates it
   // considered are kept in local storage. A newly loaded candidate triggers a re-comparison.
   // tried: candidates compared without a match. retry: failed lookups wait with exponential backoff.
-  const nodes = new Map(), tried = new Map(), retry = new Map();
+  const tried = new Map(), retry = new Map();
   let retryTimer = 0;
   let inferring = false;
-  async function conversation(id) {
+  // Conversations keep growing, so mappings are cached for one inference pass only.
+  async function conversation(id, nodes) {
     if (!nodes.has(id)) {
       const response = await api(`/backend-api/conversation/${id}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -244,26 +245,30 @@
     if (inferring || busy) return;
     const known = items[PARENTS] || {};
     const btw = new Set([...index.values()].flat().filter(record => record.key).map(record => record.chat));
-    const pending = [];
+    const pending = [], waiting = new Set();
     for (const chat of chats) {
       if (!BRANCH_TITLE.test(chat.title) || btw.has(chat.id) || deleted.has(chat.id)) continue;
       const base = baseTitle(chat.title), entry = known[chat.id];
       const compared = new Set([...(entry?.candidates || []), ...(typeof entry === 'string' ? [entry] : []), ...(tried.get(chat.id) || [])]);
       const loaded = chats.filter(other => other.id !== chat.id && baseTitle(other.title) === base).map(other => other.id);
-      if (!loaded.length || loaded.every(id => compared.has(id)) || retry.get(chat.id)?.at > Date.now()) continue;
+      if (!loaded.length || loaded.every(id => compared.has(id))) continue;
+      if (retry.get(chat.id)?.at > Date.now()) { waiting.add(chat.id); continue; }
       // Earlier candidates may have scrolled out of the sidebar; keep comparing them by ID.
       pending.push({ id: chat.id, candidates: [...new Set([...compared, ...loaded])].filter(id => !deleted.has(id)) });
     }
-    if (!pending.length) return;
+    // Keep retries only for branches still waiting or about to run; anything else (left the
+    // sidebar, deleted, settled) restarts fresh if it becomes eligible again.
+    for (const id of retry.keys()) if (!waiting.has(id) && !pending.some(item => item.id === id)) retry.delete(id);
+    if (!pending.length) { armRetry(); return; }
     inferring = true;
-    const found = {};
+    const found = {}, nodes = new Map();
     try {
       for (const { id, candidates } of pending) {
         if (!extensionActive()) return;
         try {
-          const child = await conversation(id);
+          const child = await conversation(id, nodes);
           // A candidate deleted elsewhere (404) cannot be the source; other errors retry.
-          const compared = (await Promise.all(candidates.map(candidate => conversation(candidate).catch(error => {
+          const compared = (await Promise.all(candidates.map(candidate => conversation(candidate, nodes).catch(error => {
             if (/HTTP 404/.test(error.message)) return null;
             throw error;
           })))).filter(Boolean);
@@ -281,12 +286,12 @@
         await chrome.storage.local.set({ [PARENTS]: { ...current, ...found } });
       }
     } catch (error) { storageError(error); }
-    finally {
-      inferring = false;
-      // Wake for the earliest outstanding retry, whichever lookups succeeded meanwhile.
-      window.clearTimeout(retryTimer);
-      if (retry.size && !invalidated) retryTimer = window.setTimeout(schedule, Math.max(0, Math.min(...[...retry.values()].map(item => item.at)) - Date.now()));
-    }
+    finally { inferring = false; armRetry(); }
+  }
+  // Wake for the earliest outstanding retry, whichever lookups succeeded meanwhile.
+  function armRetry() {
+    window.clearTimeout(retryTimer);
+    if (retry.size && !invalidated) retryTimer = window.setTimeout(schedule, Math.max(0, Math.min(...[...retry.values()].map(item => item.at)) - Date.now()));
   }
 
   async function load() {
