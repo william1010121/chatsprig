@@ -150,20 +150,29 @@
     }
     const button = sendButton(input);
     if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    pending = true;
     const url = location.href;
     const expected = normalize(prompt + '\n\n' + draft);
     const revision = context.revision;
-    try {
-      if (!prepend(input, prompt + '\n\n')) { pending = false; return; }
-    } catch { pending = false; return; }
+    let inserted = false;
+    try { inserted = prepend(input, prompt + '\n\n'); } catch {}
+    if (!inserted) {
+      // Never swallow the send: let an untouched draft go out natively.
+      if (readText(input) === draft) {
+        context.beginSendObservation();
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    pending = true;
     // Let the site's editor state settle before replaying this one send intent.
     setTimeout(() => {
       pending = false;
       const current = eligibleHistory();
-      const sameSettings = settings.appendSystemPrompt === true && settings.systemPrompt?.trim() === prompt;
+      const sameSettings = settings.appendSystemPrompt === true && typeof settings.systemPrompt === 'string' && settings.systemPrompt.trim() === prompt;
       if (location.href !== url || !input.isConnected || context.revision !== revision || !sameSettings ||
           !current || current.cadence !== history.cadence || current.key !== history.key || normalize(readText(input)) !== expected) {
         // Remove only our untouched insertion. Never overwrite a subsequently edited draft.

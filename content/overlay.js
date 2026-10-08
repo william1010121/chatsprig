@@ -9,6 +9,8 @@
   const MESSAGE_SOURCE = 'cgpt-helper';
   const SESSION_KEY = 'cgptHelperOverlayOpen';
   const FOCUS_DELAYS = [0, 80, 180, 350, 700, 1200, 2000, 3500];
+  // Hidden branch iframes are full ChatGPT pages; keep only a few reopenable ones.
+  const MAX_IDLE_BRANCH_FRAMES = 2;
 
   let host = null;
   let shadow = null;
@@ -19,6 +21,7 @@
   let activeBranch = null;
   const frameKey = () => activeBranch ? `btw:${activeBranch.id}` : provider;
   let focusGeneration = 0;
+  let frameUse = 0;
   let pendingFocus = null;
 
   function readSessionProvider() {
@@ -295,9 +298,44 @@
     host.setAttribute('data-open', 'true');
     writeSessionOpen(true);
     if (reload || !frames.has(frameKey())) createOrReplaceIframe();
-    iframe = frames.get(frameKey()).frame;
+    const record = frames.get(frameKey());
+    record.used = ++frameUse;
+    iframe = record.frame;
+    pruneBranchFrames();
     renderProvider();
     if (focus && settings.focusPromptOnOpen) requestFocusPrompt();
+  }
+
+  // Unsent drafts, attachments and in-flight responses live only in the frame.
+  // Treat an unreadable frame as busy.
+  function frameBusy(record) {
+    try {
+      const doc = record.frame.contentDocument;
+      if (!doc) return true;
+      if (doc.querySelector('[data-testid="stop-button"], button[aria-label="Stop answering"], button[aria-label="停止產生"], button[aria-label="停止生成"], form[data-thread-find-composer] button:is([aria-label="Stop"], [aria-label="停止"])')) return true;
+      const input = doc.querySelector('#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown][contenteditable="true"]');
+      if (!input) return false;
+      if ((input instanceof record.frame.contentWindow.HTMLTextAreaElement ? input.value : input.textContent).trim()) return true;
+      const composer = input.closest('form') || input.parentElement;
+      return !!composer?.querySelector('img, [data-testid*="attachment"], [data-testid*="composer-files"], button[aria-label^="Remove file"]') ||
+        [...(composer?.querySelectorAll('input[type="file"]') || [])].some(file => file.files?.length);
+    } catch {
+      return true;
+    }
+  }
+
+  // Only ready branches with a persisted URL can be recreated from btw.js state.
+  // Creating and local temporary branches would lose their conversation, and
+  // busy frames would lose unsent or streaming content, so keep those frames.
+  function pruneBranchFrames() {
+    const idle = [...frames].filter(([key, record]) =>
+      key.startsWith('btw:') && key !== frameKey() && record.ready && record.reopenable && !frameBusy(record));
+    idle.sort((a, b) => (b[1].used || 0) - (a[1].used || 0));
+    for (const [key, record] of idle.slice(MAX_IDLE_BRANCH_FRAMES)) {
+      window.clearTimeout(record.timer);
+      record.frame.remove();
+      frames.delete(key);
+    }
   }
 
   function hide() {
@@ -359,7 +397,9 @@
       if (!record || event.source !== record.frame.contentWindow || event.origin !== 'https://chatgpt.com' ||
           (event.data.url !== null && !/^https:\/\/chatgpt\.com\/c\/[a-zA-Z0-9-]+(?:\?temporary-chat=true)?$/.test(event.data.url || ''))) return;
       record.ready = true;
+      record.reopenable = !!event.data.url;
       if (frameKey() === `btw:${id}`) renderProvider();
+      else pruneBranchFrames();
       if (event.data.url) globalThis.cgptBtwBranchReady?.(id, event.data.url);
       return;
     }
