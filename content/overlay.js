@@ -306,11 +306,23 @@
     if (focus && settings.focusPromptOnOpen) requestFocusPrompt();
   }
 
+  // Composer drafts live only in the frame. Treat an unreadable frame as holding one.
+  function hasDraft(record) {
+    try {
+      const input = record.frame.contentDocument?.querySelector('#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown][contenteditable="true"]');
+      if (!input) return !record.frame.contentDocument;
+      return !!(input instanceof record.frame.contentWindow.HTMLTextAreaElement ? input.value : input.textContent).trim();
+    } catch {
+      return true;
+    }
+  }
+
   // Only ready branches with a persisted URL can be recreated from btw.js state.
-  // Creating and local temporary branches would lose their conversation, so keep them.
+  // Creating and local temporary branches would lose their conversation, and
+  // unsent drafts would be lost, so keep those frames.
   function pruneBranchFrames() {
     const idle = [...frames].filter(([key, record]) =>
-      key.startsWith('btw:') && key !== frameKey() && record.ready && record.reopenable);
+      key.startsWith('btw:') && key !== frameKey() && record.ready && record.reopenable && !hasDraft(record));
     idle.sort((a, b) => (b[1].used || 0) - (a[1].used || 0));
     for (const [key, record] of idle.slice(MAX_IDLE_BRANCH_FRAMES)) {
       window.clearTimeout(record.timer);
