@@ -62,12 +62,15 @@
   }
   function rebuildSkills() {
     const items = skills.filter(skill => skill && typeof skill.name === 'string' && typeof skill.content === 'string');
-    if (systemPrompt.trim()) items.unshift({ name: 'system-prompt', content: systemPrompt });
+    const prompt = { name: 'system-prompt', content: systemPrompt, configure: !systemPrompt.trim() };
+    if (prompt.configure) items.push(prompt);
+    else items.unshift(prompt);
     availableSkills = items.map(skill => ({
       name: skill.name,
       content: skill.content,
+      configure: skill.configure === true,
       lowerName: skill.name.toLocaleLowerCase(),
-      preview: skill.content.replace(/\s+/g, ' ').slice(0, 100)
+      preview: skill.configure ? 'Set your system prompt in ChatSprig Settings' : skill.content.replace(/\s+/g, ' ').slice(0, 100)
     }));
   }
   function matches(query) {
@@ -168,6 +171,10 @@
     if (!input.isConnected) { close(); return; }
     const trigger = active;
     close();
+    if (skill.configure) {
+      chrome.runtime.sendMessage({ type: 'openChatSprigSettings' }).catch(() => {});
+      return;
+    }
     const menuMs = performance.now() - start;
     inserting = true;
     let placementMs = 0;

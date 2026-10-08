@@ -23,8 +23,8 @@ function contextHarness() {
   const work = node({ 'aria-checked': 'false', 'data-tpp-toggle-value': 'work' });
   const group = node();
   group.querySelectorAll = () => [chat, work];
-  const composer = { querySelectorAll: () => [] };
-  const main = {
+  const composer = { ...node(), querySelectorAll: () => [] };
+  const main = { ...node(),
     querySelector: () => null,
     querySelectorAll(selector) {
       if (selector === '[data-turn-id-container]') return [];
@@ -41,6 +41,8 @@ function contextHarness() {
       documentElement: {},
       querySelector: selector => selector === 'main' ? main : composer,
       querySelectorAll(selector) {
+        if (selector.startsWith('form')) return [composer];
+        if (selector.startsWith('main,')) return [main];
         if (selector.includes('main [data-message-author-role=')) {
           if (selector.includes('"user"')) stats.userScans++;
           return turns.flatMap(turn => turn.entries).filter(entry => selector.includes(`"${entry.attrs['data-message-author-role']}"`));

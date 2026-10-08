@@ -8,7 +8,14 @@
   const STYLE_ID = 'cgpt-helper-hide-sidebar-style';
   const HTML_CLASS = 'cgpt-helper-embedded';
 
-  if (window.top === window.self || window.name !== FRAME_NAME) return;
+  const branchIdentity = /^cgpt_helper_btw_([a-zA-Z0-9-]+)_([a-zA-Z0-9-]+)$/.exec(window.name);
+  const branchId = branchIdentity?.[1];
+  if (window.top === window.self || (window.name !== FRAME_NAME && !branchId)) return;
+  // The native branch route falls back to the source conversation on failure.
+  // Never treat that fallback as a successful branch or submit into it.
+  const sourceConversation = branchIdentity?.[2] || null;
+  const branchReady = () => !branchId || (!!/^\/c\/(?:[a-zA-Z0-9-]+|local-chatgpt(?:%3A|:)[a-zA-Z0-9-]+)$/i.test(location.pathname) &&
+    location.pathname !== `/c/${sourceConversation}`);
 
   function injectSidebarCss() {
     if (document.getElementById(STYLE_ID)) return;
@@ -45,6 +52,7 @@
   }
 
   function findPromptInput() {
+    if (globalThis.cgptChatContext?.getInput) return globalThis.cgptChatContext.getInput();
     return (
       document.querySelector('#prompt-textarea') ||
       document.querySelector('[data-testid="prompt-textarea"]') ||
@@ -165,7 +173,7 @@
       while (!operation.cancelled && Date.now() < deadline) {
         input = findPromptInput();
         wasGenerating ||= generating();
-        if (input && (input.isContentEditable || input instanceof HTMLTextAreaElement) &&
+        if (branchReady() && input && (input.isContentEditable || input instanceof HTMLTextAreaElement) &&
             !input.disabled && input.getClientRects().length) break;
         input = null;
         await sleep(150);
@@ -192,20 +200,23 @@
       if (normalize(inputText(input)) !== normalize(expected)) {
         return { message: 'Could not verify the draft. Please check it before sending.' };
       }
+      if (operation.cancelled) return { message: 'Cancelled.', filled: true };
+      if (!branchReady()) return { message: 'Branch creation failed. Check the floating chat.', filled: false };
       if (hasDraft || wasGenerating || generating() || !message.autoSend) {
-        return { message: hasDraft ? 'Added to existing draft · review before sending.' : 'Selection added · ready for your question.' };
+        return { filled: true, message: hasDraft ? 'Added to existing draft · review before sending.' : 'Selection added · ready for your question.' };
       }
       const sendDeadline = Date.now() + 3000;
       while (!operation.cancelled && Date.now() < sendDeadline) {
-        if (!input.isConnected || normalize(inputText(input)) !== normalize(expected) || generating()) break;
-        const button = document.querySelector('[data-testid="send-button"], #composer-submit-button, form[data-thread-find-composer] button[type="submit"]');
+        if (!branchReady() || !input.isConnected || normalize(inputText(input)) !== normalize(expected) || generating()) break;
+        const button = input.closest?.('form')?.querySelector('[data-testid="send-button"], #composer-submit-button, button[type="submit"]') ||
+          document.querySelector('[data-testid="send-button"], #composer-submit-button, form[data-thread-find-composer] button[type="submit"]');
         if (button && !button.disabled && button.getAttribute('aria-disabled') !== 'true' && button.getClientRects().length) {
           button.click();
-          return { message: 'Selection sent.' };
+          return { filled: true, sent: true, message: branchId ? 'BTW question sent.' : 'Selection sent.' };
         }
         await sleep(100);
       }
-      return { message: 'Selection filled · please send when ready.' };
+      return { filled: true, message: 'Selection filled · please send when ready.' };
     } catch {
       return { message: 'Could not fill sidebar. Check the draft before trying again.' };
     } finally {
@@ -214,16 +225,50 @@
   }
 
   function registerFrame() {
-    chrome.runtime.sendMessage({ type: 'sidebarFrameIdentity', provider: 'chatgpt' }).catch(() => {});
+    chrome.runtime.sendMessage({ type: 'sidebarFrameIdentity', provider: 'chatgpt', ...(branchId ? { branchId } : {}) }).catch(() => {});
   }
   registerFrame();
+  if (branchId) {
+    let checks = 0;
+    let reportedPath = null;
+    const report = () => {
+      if (branchReady()) {
+        const temporary = new URLSearchParams(location.search).get('temporary-chat') === 'true' || new URLSearchParams(location.search).get('training_disabled') === 'true';
+        const path = `${location.pathname}${temporary ? '?temporary-chat=true' : ''}`;
+        if (path === reportedPath) return true;
+        reportedPath = path;
+        // Local thread URLs cannot be reopened after reload. Report readiness now;
+        // save a URL only after ChatGPT assigns its persisted conversation ID.
+        const url = /^\/c\/local-chatgpt(?:%3A|:)/i.test(location.pathname) ? null : `https://chatgpt.com${path}`;
+        registerFrame();
+        let parentOrigin = 'https://chatgpt.com';
+        try {
+          const referrerOrigin = new URL(document.referrer).origin;
+          if (['https://chatgpt.com', 'https://chat.openai.com'].includes(referrerOrigin)) parentOrigin = referrerOrigin;
+        } catch {}
+        window.parent.postMessage({ source: MESSAGE_SOURCE, action: 'btwBranchReady', branchId,
+          url }, parentOrigin);
+        return true;
+      }
+      return ++checks >= 120;
+    };
+    if (!report()) {
+      const timer = window.setInterval(() => { if (report()) window.clearInterval(timer); }, 300);
+    }
+    // ChatGPT may replace its initial client ID with the persisted conversation ID after sending.
+    new MutationObserver(() => {
+      if (`${location.pathname}${location.search || ''}` !== reportedPath) report();
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    window.addEventListener('popstate', report);
+  }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== chrome.runtime.id) return false;
     if (message?.provider && message.provider !== 'chatgpt') return false;
+    if ((message?.branchId || undefined) !== branchId) return false;
     if (message?.type === 'sidebarDiscover') { registerFrame(); return false; }
     if (message?.type === 'sidebarProbe') {
-      sendResponse({ ready: true, provider: 'chatgpt' });
+      sendResponse({ ready: branchReady(), provider: 'chatgpt', ...(branchId ? { branchId } : {}) });
       return false;
     }
     if (message?.type === 'sidebarCancel') {

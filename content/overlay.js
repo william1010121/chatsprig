@@ -16,6 +16,8 @@
   let settings = null;
   let provider = 'chatgpt';
   const frames = new Map();
+  let activeBranch = null;
+  const frameKey = () => activeBranch ? `btw:${activeBranch.id}` : provider;
   let focusGeneration = 0;
   let pendingFocus = null;
 
@@ -47,6 +49,7 @@
   }
 
   function targetOrigin() {
+    if (activeBranch) return 'https://chatgpt.com';
     try {
       return provider === 'gemini' ? 'https://gemini.google.com' : new URL(settings.targetUrl).origin;
     } catch {
@@ -231,39 +234,40 @@
     const gemini = provider === 'gemini';
     const label = gemini ? 'Gemini' : 'ChatGPT';
     const shortcut = gemini ? 'Alt+G' : 'Alt+K';
-    shadow.querySelector('.window').setAttribute('aria-label', `${label} temporary chat`);
-    shadow.querySelector('.title').textContent = `ChatSprig · ${label} · Temporary Chat`;
+    shadow.querySelector('.window').setAttribute('aria-label', activeBranch ? 'ChatGPT branch' : `${label} temporary chat`);
+    shadow.querySelector('.title').textContent = activeBranch ? `ChatSprig · BTW · ${activeBranch.title}` : `ChatSprig · ${label} · Temporary Chat`;
+    shadow.querySelector('[data-action="refresh"]').hidden = !!activeBranch;
     shadow.querySelector('[data-action="close"]').title = `Close: ${shortcut}`;
-    shadow.querySelector('.footer span').textContent = `${shortcut} toggle · Alt+N new chat`;
-    const record = frames.get(provider);
+    shadow.querySelector('.footer span').textContent = activeBranch ? `${shortcut} close · Alt+N temporary chat` : `${shortcut} toggle · Alt+N new chat`;
+    const record = frames.get(frameKey());
     const status = shadow.querySelector('.frame-status');
-    status.hidden = !gemini || record?.ready === true;
+    status.hidden = (!gemini && !activeBranch) || record?.ready === true;
     if (!status.hidden) {
-      status.querySelector('span').textContent = record?.error || 'Opening Gemini temporary chat…';
-      status.querySelector('button').hidden = !record?.error;
+      status.querySelector('span').textContent = record?.error || (activeBranch ? 'Creating ChatGPT branch…' : 'Opening Gemini temporary chat…');
+      status.querySelector('button').hidden = !!activeBranch || !record?.error;
     }
     for (const [key, value] of frames) {
-      value.frame.hidden = key !== provider;
-      value.frame.style.visibility = key === 'gemini' && !value.ready ? 'hidden' : '';
+      value.frame.hidden = key !== frameKey();
+      value.frame.style.visibility = (key === 'gemini' || key.startsWith('btw:')) && !value.ready ? 'hidden' : '';
     }
     askStatus(record?.askStatus || '⌖ focus input');
   }
 
   function createOrReplaceIframe() {
     ensureWindow();
-    const previous = frames.get(provider);
+    const previous = frames.get(frameKey());
     if (previous) {
       window.clearTimeout(previous.timer);
       previous.frame.remove();
     }
     const frame = document.createElement('iframe');
-    const key = provider;
-    frame.name = key === 'gemini' ? 'gemini_helper_overlay_frame' : FRAME_NAME;
+    const key = frameKey();
+    frame.name = activeBranch ? `cgpt_helper_btw_${activeBranch.id}_${activeBranch.session}` : key === 'gemini' ? 'gemini_helper_overlay_frame' : FRAME_NAME;
     frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-downloads');
     frame.allow = 'clipboard-read; clipboard-write; microphone';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.src = key === 'gemini' ? 'https://gemini.google.com/app' : settings.targetUrl;
-    const record = { frame, ready: key !== 'gemini', loaded: false, error: '', timer: null };
+    frame.src = activeBranch ? activeBranch.url : key === 'gemini' ? 'https://gemini.google.com/app' : settings.targetUrl;
+    const record = { frame, ready: key !== 'gemini' && !activeBranch, loaded: false, error: '', timer: null };
     frames.set(key, record);
     iframe = frame;
     if (key === 'gemini') {
@@ -275,22 +279,23 @@
     }
     frame.addEventListener('load', () => {
       record.loaded = true;
-      if (provider === key && frames.get(key) === record && isOpen() && pendingFocus?.frame === frame) requestFocusPrompt();
+      if (frameKey() === key && frames.get(key) === record && isOpen() && pendingFocus?.frame === frame) requestFocusPrompt();
     });
     shadow.querySelector('.body').appendChild(frame);
   }
 
-  function show({ reload = false, focus = false, provider: nextProvider = provider } = {}) {
+  function show({ reload = false, focus = false, provider: nextProvider = provider, branch = null } = {}) {
     ensureWindow();
-    if (nextProvider !== provider) {
+    if (nextProvider !== provider || branch?.id !== activeBranch?.id) {
       cancelAsk();
       cancelFocusPrompt();
     }
     provider = nextProvider;
+    activeBranch = branch;
     host.setAttribute('data-open', 'true');
     writeSessionOpen(true);
-    if (reload || !frames.has(provider)) createOrReplaceIframe();
-    iframe = frames.get(provider).frame;
+    if (reload || !frames.has(frameKey())) createOrReplaceIframe();
+    iframe = frames.get(frameKey()).frame;
     renderProvider();
     if (focus && settings.focusPromptOnOpen) requestFocusPrompt();
   }
@@ -332,7 +337,7 @@
     if (!iframe || pendingAsk) return;
     cancelFocusPrompt();
     const frame = iframe;
-    const key = provider;
+    const key = frameKey();
     const generation = focusGeneration;
     const origin = targetOrigin();
     const request = { frame, origin, id: generation, timers: [] };
@@ -348,6 +353,16 @@
   }
 
   window.addEventListener('message', (event) => {
+    if (event.data?.source === MESSAGE_SOURCE && event.data.action === 'btwBranchReady') {
+      const id = event.data.branchId;
+      const record = frames.get(`btw:${id}`);
+      if (!record || event.source !== record.frame.contentWindow || event.origin !== 'https://chatgpt.com' ||
+          (event.data.url !== null && !/^https:\/\/chatgpt\.com\/c\/[a-zA-Z0-9-]+(?:\?temporary-chat=true)?$/.test(event.data.url || ''))) return;
+      record.ready = true;
+      if (frameKey() === `btw:${id}`) renderProvider();
+      if (event.data.url) globalThis.cgptBtwBranchReady?.(id, event.data.url);
+      return;
+    }
     if (event.data?.source === MESSAGE_SOURCE && event.data.action === 'focusPromptResult') {
       const request = pendingFocus;
       if (!request || event.source !== request.frame.contentWindow || event.origin !== request.origin ||
@@ -372,7 +387,7 @@
   let pendingAsk = null;
 
   function askStatus(text) {
-    const record = frames.get(provider);
+    const record = frames.get(frameKey());
     if (record) record.askStatus = text;
     const label = shadow?.querySelector('.footer .muted');
     if (label) {
@@ -390,6 +405,35 @@
   }
 
   // Shared only with this extension's other content scripts (isolated world).
+  globalThis.cgptOpenBtw = async (branch, text = null) => {
+    await ready;
+    if (pendingAsk) return { message: 'The floating chat is busy. Try again.' };
+    if (!branch || !/^[a-zA-Z0-9-]+$/.test(branch.id) || !/^[a-zA-Z0-9-]+$/.test(branch.session) ||
+        !/^https:\/\/chatgpt\.com\/(?:c\/[a-zA-Z0-9-]+|branch\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+)(?:\?(?:surface=work|temporary-chat=true)(?:&temporary-chat=true)?)?$/.test(branch.url)) return;
+    cancelFocusPrompt();
+    show({ provider: 'chatgpt', branch, focus: !text });
+    if (!text) return { ok: true };
+    const request = { controller: new AbortController() };
+    pendingAsk = request;
+    askStatus('Creating branch…');
+    try {
+      const result = await chrome.runtime.sendMessage({ type: 'askBtw', provider: 'chatgpt', branchId: branch.id, text, autoSend: true });
+      if (request.controller.signal.aborted) return { message: 'Cancelled. Check the branch draft before retrying.' };
+      askStatus(result?.message || 'Could not reach the branch. Your question remains in the main draft.');
+      const record = frames.get(`btw:${branch.id}`);
+      if (record && !record.ready) {
+        record.error = result?.message || 'Branch creation failed. Close this window and keep your question in the main draft.';
+        renderProvider();
+      }
+      return result;
+    } catch {
+      askStatus('Could not reach the branch. Your question remains in the main draft.');
+      return { filled: false };
+    } finally {
+      if (pendingAsk === request) pendingAsk = null;
+    }
+  };
+
   globalThis.cgptAskInSidebar = async (text, requestedProvider = 'chatgpt', explainResponse = false) => {
     await ready;
     if (typeof text !== 'string' || !text.trim()) return;

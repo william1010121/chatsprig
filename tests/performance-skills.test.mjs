@@ -10,6 +10,7 @@ async function harness({ skills = [], systemPrompt = '', richText = false } = {}
   const metrics = { replacements: 0, previews: 0, lowerNames: 0, beforeReads: 0 };
   const commands = [];
   const inputEvents = [];
+  const requests = [];
   let storageChange;
   let host;
   class Element {
@@ -72,7 +73,7 @@ async function harness({ skills = [], systemPrompt = '', richText = false } = {}
     NodeFilter: { SHOW_TEXT: 4 }, Event: class { constructor(type) { this.type = type; } },
     performance, queueMicrotask, innerWidth: 1000, metrics,
     window: { getSelection: () => selection, addEventListener(type, fn) { listeners[type] = fn; } },
-    chrome: { storage: { local: { get: async () => ({ skills }) },
+    chrome: { runtime: { sendMessage: async message => { requests.push(message); } }, storage: { local: { get: async () => ({ skills }) },
       onChanged: { addListener(fn) { storageChange = fn; } } } },
     cgptLoadSettings: async () => ({ systemPrompt })
   });
@@ -100,7 +101,7 @@ async function harness({ skills = [], systemPrompt = '', richText = false } = {}
     else { input.value = value; input.selectionStart = input.selectionEnd = value.length; }
     dispatch('input');
   }
-  return { input, metrics, commands, inputEvents, context, draft, dispatch,
+  return { input, metrics, commands, inputEvents, requests, context, draft, dispatch,
     get host() { return host; }, get menu() { return host.shadow.menu; },
     change(changes, area) { storageChange(changes, area); } };
 }
@@ -148,6 +149,17 @@ test('system prompt updates refresh cached previews and insertion content', asyn
   assert.equal(h.menu.children[0].children[1].textContent, 'updated prompt');
   h.dispatch('keydown', { key: 'Enter' });
   assert.equal(h.input.value, 'updated\nprompt');
+});
+
+test('empty system prompt keeps its double-slash entry and opens Settings without deleting the draft', async () => {
+  const h = await harness();
+  h.draft('//system-prompt');
+  assert.equal(h.menu.children[0].children[0].textContent, '//system-prompt');
+  assert.match(h.menu.children[0].children[1].textContent, /Settings/);
+  h.dispatch('keydown', { key: 'Enter' });
+  assert.deepEqual(h.requests.map(request => ({ ...request })), [{ type: 'openChatSprigSettings' }]);
+  assert.equal(h.input.value, '//system-prompt');
+  assert.deepEqual(h.inputEvents, []);
 });
 
 test('rich text trigger reads its preceding range once and retains native insertion', async () => {

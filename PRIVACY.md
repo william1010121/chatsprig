@@ -1,6 +1,6 @@
 # ChatSprig Privacy Policy
 
-Effective date: September 28, 2026
+Effective date: October 8, 2026
 
 ChatSprig is an independent browser extension maintained by the GitHub developer account [william1010121](https://github.com/william1010121). It opens the ChatGPT or Gemini website inside supported web pages and provides shortcuts, layout controls, and LaTeX copying.
 
@@ -8,6 +8,7 @@ ChatSprig is an independent browser extension maintained by the GitHub developer
 
 - **Preferences:** Chrome's `storage.sync` stores your settings, such as overlay dimensions, launcher placement, target ChatGPT URL, preferred Gemini model, and feature switches. Chrome may sync these settings across devices according to your browser configuration.
 - **Custom skills:** Chrome's `storage.local` stores the names and text of templates you add in Settings. These templates stay in this browser; selecting one inserts its text into the ChatGPT or Gemini draft for you to review before sending.
+- **BTW branches:** Sending `/btw` on ChatGPT creates a native branch through the latest visible message and sends the question in a separate embedded ChatGPT conversation. Unlike Ask in sidebar, a branch includes the source conversation context. Chrome's `storage.local` retains the source conversation ID, branch ID and URL, creation time, status, and a title derived from the first 100 characters of the question. This metadata stays in this browser so the branch list survives reloads. Branches follow ChatGPT's normal retention unless their source URL explicitly identifies temporary mode.
 - **ChatGPT cookies:** When cookie compatibility is enabled (the default), the extension reads and rewrites eligible cookies for chatgpt.com and chat.openai.com, including authentication/session cookies. Processing occurs in your browser. Cookie values are not sent to the developer or a developer-operated server.
 - **Page content:** Content scripts run on supported websites to display the launcher and overlay and handle keyboard shortcuts. They do not automatically send the surrounding page or article to ChatGPT. On ChatGPT and Gemini, they inspect the prompt input to offer skill completion. On ChatGPT, they also inspect relevant interface elements to focus the input, hide the embedded sidebar, and convert selected mathematical content when you copy it.
 - **Custom prompt:** If automatic append is enabled in ChatGPT Chat mode, your saved prompt is prepended to the first message and optionally repeated every k user messages. Automatic append is unavailable in Work and Gemini. You may also insert this text manually with `//system-prompt` on either service; it is sent only if you send that draft. The text, switch, and repeat interval are stored in Chrome Sync. A per-tab session cache stores the verified Chat/Work mode keyed by conversation path, without message content.

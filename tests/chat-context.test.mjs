@@ -13,9 +13,9 @@ function harness({ hostname = 'chatgpt.com', pathname = '/', busy = false } = {}
   let observe;
   const events = [];
   const groups = [], turns = [], containers = [], triggers = [];
-  const composer = { querySelectorAll: () => triggers };
+  const composer = { ...node(), querySelectorAll: () => triggers };
   const menus = new Map(), cache = new Map();
-  const main = {
+  const main = { ...node(),
     querySelector() { return busy ? {} : null; },
     querySelectorAll(selector) {
       if (selector === '[data-turn-id-container]') return containers;
@@ -26,7 +26,9 @@ function harness({ hostname = 'chatgpt.com', pathname = '/', busy = false } = {}
   const context = vm.createContext({ location: { hostname, pathname }, Event: class { constructor(type) { this.type = type; } },
     document: { documentElement: {},
       querySelector(selector) { return selector === 'main' ? main : selector.startsWith('form') ? composer : turns[0]?.entries[0] || null; },
-      querySelectorAll(selector) { return selector.includes('main [data-message-author-role=') ?
+      querySelectorAll(selector) { if (selector.startsWith('form')) return [composer];
+        if (selector.startsWith('main,')) return [main];
+        return selector.includes('main [data-message-author-role=') ?
         turns.flatMap(turn => turn.entries).filter(entry => selector.includes(`"${entry.attrs['data-message-author-role']}"`)) : groups; }, getElementById: id => menus.get(id) },
     sessionStorage: { setItem: (k,v) => cache.set(k,v), getItem: k => cache.get(k), removeItem: k => cache.delete(k) },
     window: { dispatchEvent(event) { events.push(event.type); } }, setTimeout() {}, MutationObserver: class { constructor(fn) { observe = fn; } observe() {} }
@@ -58,6 +60,11 @@ test('mode requires visible paired controls and an explicit, unambiguous selecti
   const inMessage = harness(); inMessage.group('chat').inMessage = true; assert.equal(inMessage.api.getMode(), 'unknown');
   group.inMessage = false; h.group('work'); assert.equal(h.api.getMode(), 'unknown');
   const other = harness({ hostname: 'gemini.google.com' }); other.group('chat'); assert.equal(other.api.getMode(), 'unknown');
+});
+test('surface guesses cached by previous versions cannot decide an unrecognized composer', () => {
+  const h = harness({ pathname: '/c/existing' });
+  h.cache.set('chatsprig:surface:/c/existing', 'work');
+  assert.equal(h.api.getMode(), 'unknown');
 });
 test('counts only user messages in complete 1-based turns, matching the saved KK page structure', () => {
   const h = harness({ pathname: '/c/existing' });
@@ -99,10 +106,10 @@ test('verified composer menu identifies existing chats, survives portal close an
   h.menus.set('menu', { querySelector: () => picker });
   assert.equal(h.api.getMode(), 'chat');
   h.menus.clear(); assert.equal(h.api.getMode(), 'chat');
-  assert.equal(h.cache.get('chatsprig:surface:/c/existing'), 'chat');
+  assert.equal(h.cache.get('chatsprig:surface:2.5.0:/c/existing'), 'chat');
   trigger.classList.push('prefix_WorkTrigger'); assert.equal(h.api.getMode(), 'work');
   const reloaded = harness({ pathname: '/c/existing' });
-  reloaded.cache.set('chatsprig:surface:/c/existing', 'chat'); assert.equal(reloaded.api.getMode(), 'chat');
+  reloaded.cache.set('chatsprig:surface:2.5.0:/c/existing', 'chat'); assert.equal(reloaded.api.getMode(), 'chat');
   reloaded.location.pathname = '/c/other'; assert.equal(reloaded.api.getMode(), 'unknown');
 });
 test('unselected surface controls do not reuse earlier Chat evidence', () => {

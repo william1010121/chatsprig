@@ -1,6 +1,6 @@
 # ChatSprig submission notes
 
-- Version: 2.4.0 (local release; not submitted)
+- Version: 2.5.1 (local release; not submitted)
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
@@ -10,9 +10,16 @@
 
 Provide an in-page workspace for temporary ChatGPT and Gemini conversations, with keyboard access, explicit selection-to-sidebar actions, focused layout, and LaTeX copying for mathematical responses.
 
+## Changes in 2.5.1
+
+- Add `/btw` native ChatGPT branches, slash completion, and a local branch list with recent shortcuts.
+- Recognize the visible composer and conversation in newer ChatGPT layouts, including hidden composers retained during navigation.
+- Keep `//system-prompt` available when unconfigured so it can open Settings without changing the draft.
+- Fix Compact view side margins when a response contains an interactive form; ordinary text adjusts while UI cards retain native width.
+
 ## Permission explanations
 
-- storage: Store and sync user-selected overlay, launcher, shortcut behavior, LaTeX-copy, and cookie compatibility settings using chrome.storage.sync; store user-created text templates in chrome.storage.local.
+- storage: Store and sync user-selected overlay, launcher, shortcut behavior, LaTeX-copy, and cookie compatibility settings using chrome.storage.sync; store user-created text templates and BTW branch metadata in chrome.storage.local.
 - cookies: Read and rewrite eligible chatgpt.com and chat.openai.com cookies to SameSite=None; Secure when cookie compatibility is enabled. This allows existing ChatGPT sign-in cookies to work in a cross-site iframe where browser policy permits. Cookie values stay in the browser and are not sent to the developer. Enabled by default; Settings can stop future rewrites but cannot undo earlier changes.
 - declarativeNetRequestWithHostAccess: Apply the packaged static rules.json rules to remove frame-blocking response headers from ChatGPT subframes and X-Frame-Options from Gemini subframes. Rules require granted host access to the listed service domains.
 - Host/content-script access: Content scripts on supported web pages provide the floating launcher, keyboard fallback, and overlay host. ChatGPT and Gemini scripts offer skill completion when the user types `//` in the prompt. ChatGPT-specific scripts focus the prompt, hide its embedded sidebar, provide Compact view and optional saved instructions, and convert selected math when copying. Gemini-specific scripts verify temporary mode and the requested model. Access to the ChatGPT and Gemini hosts supports these user-facing features and frame compatibility. The surrounding page is not automatically sent to either service.
@@ -35,14 +42,15 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 4. Press Alt+G / Option+G and confirm Gemini opens only after temporary mode is active. Switch between services and verify each draft is preserved.
 5. Press Alt+N / Option+N to create a fresh temporary chat in the current service.
 6. On the main ChatGPT or Gemini website, select message text and choose Ask in sidebar. Verify only that selection is transferred to the matching service.
-7. On ChatGPT, test Compact view, optional saved instructions in Chat mode, and LaTeX copying.
+7. On ChatGPT, test Compact view, optional saved instructions in Chat mode, and LaTeX copying. In a response containing an interactive form, adjust Side margins and confirm ordinary text changes width while the UI card and native composer keep their widths.
 8. In Settings, add a skill, then type `//` in a ChatGPT or Gemini prompt. Select it with Enter and confirm the draft is filled without sending. Test `//system-prompt` after setting prompt text.
 9. Disable cookie rewriting to stop future ChatGPT cookie changes. Browser restrictions and provider availability may still limit cross-site login.
+10. In an existing ChatGPT Chat or Work conversation, send `/btw a side question`. Verify a native branch opens in the floating window with the same mode, the source conversation receives no message, and Branches · N lists it above the composer. Verify `/btw` also appears in the native `/` menu. Create another branch, switch between them, and reload the source page to reopen a saved branch without sending again. Native-branch initialization errors must preserve the main draft and must never send to the source conversation. In a new conversation, the bar must remain above the visible composer after the first message, even while an old hidden home composer remains mounted.
 
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: 2.4.0 is prepared locally. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
+- Status: 2.5.1 is prepared locally. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.

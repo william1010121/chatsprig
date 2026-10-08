@@ -11,11 +11,11 @@ const el = (attrs = {}, extra = {}) => ({
   closest() { return null; }, getClientRects() { return [{}]; }, ...extra
 });
 
-function contextHarness({ pathname = '/', chatComposer = true, pressed = null } = {}) {
+function contextHarness({ pathname = '/', chatComposer = true, pressed = null, workLabel = null, hiddenComposer = false } = {}) {
   const composer = el({ 'data-thread-find-composer': 'true', ...(chatComposer ? { 'data-chatgpt-composer': '' } : {}) },
-    { querySelectorAll: () => [] });
+    { querySelectorAll: selector => selector.includes('data-composer-markdown') && workLabel ? [el({ 'aria-label': workLabel }, {querySelector: () => null})] : [] });
   const turns = [];
-  const main = {
+  const main = { ...el(),
     querySelector: () => null,
     querySelectorAll(selector) {
       if (selector === '[data-turn-key]') return turns;
@@ -27,6 +27,8 @@ function contextHarness({ pathname = '/', chatComposer = true, pressed = null } 
     document: { documentElement: {},
       querySelector(selector) { return selector === 'main' ? main : selector.startsWith('form') ? composer : null; },
       querySelectorAll(selector) {
+        if (selector.startsWith('form')) return hiddenComposer ? [el({'data-chatgpt-composer':''}, {getClientRects: () => []}), composer] : [composer];
+        if (selector.startsWith('main,')) return [el({}, {getClientRects: () => []}), main];
         if (selector.includes('Composer mode')) return buttons;
         if (selector.includes(':user"]')) return turns.flatMap(turn => turn.units.filter(unit => unit.role === 'user'));
         if (selector.includes(':assistant"]')) return turns.flatMap(turn => turn.units.filter(unit => unit.role === 'assistant'));
@@ -51,11 +53,13 @@ function contextHarness({ pathname = '/', chatComposer = true, pressed = null } 
   return { api: context.cgptChatContext, turn, turns };
 }
 
-test('keyed layout: Composer mode buttons decide new chats; the Chat-only composer marker decides threads', () => {
+test('keyed layout: visible positive evidence decides Chat/Work; a missing Chat marker is unknown', () => {
   assert.equal(contextHarness({ pressed: 'Chat' }).api.getMode(), 'chat');
   assert.equal(contextHarness({ pressed: 'Work', chatComposer: true }).api.getMode(), 'work');
   assert.equal(contextHarness({ pathname: '/c/abc' }).api.getMode(), 'chat');
-  assert.equal(contextHarness({ pathname: '/c/abc', chatComposer: false }).api.getMode(), 'work');
+  assert.equal(contextHarness({ pathname: '/c/abc', chatComposer: false }).api.getMode(), 'unknown');
+  assert.equal(contextHarness({ pathname: '/c/abc', chatComposer: false, workLabel: 'Work with ChatGPT', hiddenComposer: true }).api.getMode(), 'work');
+  assert.equal(contextHarness({ pathname: '/c/abc', chatComposer: true, workLabel: 'Work with ChatGPT' }).api.getMode(), 'work', 'explicit Work input wins over a stale Chat marker');
 });
 
 test('keyed layout: history counts user units per turn and rejects gaps or unmounted turns', () => {

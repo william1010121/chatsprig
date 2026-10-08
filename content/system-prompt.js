@@ -6,6 +6,10 @@
   if (!context) return;
   const inputSelector = '#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown][contenteditable="true"]';
   const sendSelector = '[data-testid="send-button"], #composer-submit-button, form[data-thread-find-composer] button[type="submit"]';
+  function sendButton(input) {
+    const form = input.closest?.('form');
+    return form ? form.querySelector('[data-testid="send-button"], #composer-submit-button, button[type="submit"]') : document.querySelector(sendSelector);
+  }
   let settings = {};
   let settingsLoaded = false;
   let pending = false;
@@ -103,7 +107,7 @@
     if (event.type === 'keydown' && (event.key !== 'Enter' || event.shiftKey || event.ctrlKey ||
         event.altKey || event.metaKey || event.isComposing || event.keyCode === 229)) return;
     if (event.type === 'click' && !event.target.closest?.(sendSelector)) return;
-    const input = document.querySelector(inputSelector);
+    const input = context.getInput ? context.getInput() : document.querySelector(inputSelector);
     if (!input) return;
     if (event.type === 'keydown') {
       if (!input.contains(event.target)) return;
@@ -120,7 +124,7 @@
       settingsReady.then(() => {
         pending = false;
         if (location.href !== url || !input.isConnected || readText(input) !== draft) return;
-        const send = document.querySelector(sendSelector);
+        const send = sendButton(input);
         if (send && !send.disabled && send.getAttribute('aria-disabled') !== 'true') send.click();
       }).catch(() => { pending = false; });
       return;
@@ -144,7 +148,7 @@
       context.beginSendObservation();
       return;
     }
-    const button = document.querySelector(sendSelector);
+    const button = sendButton(input);
     if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -168,7 +172,7 @@
         }
         return;
       }
-      const send = document.querySelector(sendSelector);
+      const send = sendButton(input);
       if (!send || send.disabled || send.getAttribute('aria-disabled') === 'true') return;
       context.beginSendObservation();
       replaying = true;

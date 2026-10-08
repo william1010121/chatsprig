@@ -83,34 +83,36 @@ const providerForUrl = (url = '') => /^https:\/\/gemini\.google\.com\//.test(url
 async function askSidebar(message, sender) {
   const tabId = sender.tab.id;
   const provider = message.provider || 'chatgpt';
+  const branchId = message.branchId;
+  const frameKey = `${tabId}:${branchId ? `btw:${branchId}` : provider}`;
   if (sidebarRequests.has(tabId)) return { message: 'Sidebar is still handling the previous selection.' };
-  const request = { id: crypto.randomUUID(), provider, documentId: null, wake: null };
+  const request = { id: crypto.randomUUID(), provider, branchId, documentId: null, wake: null };
   sidebarRequests.set(tabId, request);
   try {
     const deadline = Date.now() + 35000;
     while (Date.now() < deadline && sidebarRequests.get(tabId) === request) {
-      const documentId = sidebarFrames.get(`${tabId}:${provider}`);
+      const documentId = sidebarFrames.get(frameKey);
       if (documentId) {
         let frame;
         try {
-          frame = await chrome.tabs.sendMessage(tabId, { type: 'sidebarProbe', provider }, { documentId });
+          frame = await chrome.tabs.sendMessage(tabId, { type: 'sidebarProbe', provider, ...(branchId ? { branchId } : {}) }, { documentId });
         } catch {
-          if (sidebarFrames.get(`${tabId}:${provider}`) === documentId) sidebarFrames.delete(`${tabId}:${provider}`);
+          if (sidebarFrames.get(frameKey) === documentId) sidebarFrames.delete(frameKey);
         }
-        if (frame?.ready && frame.provider === provider && sidebarRequests.get(tabId) === request &&
-            sidebarFrames.get(`${tabId}:${provider}`) === documentId) {
+        if (frame?.ready && frame.provider === provider && (!branchId || frame.branchId === branchId) && sidebarRequests.get(tabId) === request &&
+            sidebarFrames.get(frameKey) === documentId) {
           request.documentId = documentId;
           return await chrome.tabs.sendMessage(tabId, {
-            type: 'sidebarFill', provider, id: request.id, text: message.text, autoSend: message.autoSend === true
+            type: 'sidebarFill', provider, ...(branchId ? { branchId } : {}), id: request.id, text: message.text, autoSend: message.autoSend === true
           }, { documentId });
         }
       } else {
         // Helpers register their own exact document; discovery responses are never used as a fill target.
-        chrome.tabs.sendMessage(tabId, { type: 'sidebarDiscover', provider }).catch(() => {});
+        chrome.tabs.sendMessage(tabId, { type: 'sidebarDiscover', provider, ...(branchId ? { branchId } : {}) }).catch(() => {});
       }
       if (sidebarRequests.get(tabId) !== request) break;
       // A registration received during the probe can be used immediately.
-      if (sidebarFrames.get(`${tabId}:${provider}`) !== documentId) continue;
+      if (sidebarFrames.get(frameKey) !== documentId) continue;
       await waitForSidebar(request, Math.min(documentId ? 200 : 1000, deadline - Date.now()));
     }
     if (sidebarRequests.get(tabId) !== request) return { message: 'Cancelled.' };
@@ -126,35 +128,44 @@ async function askSidebar(message, sender) {
 chrome.tabs.onRemoved.addListener((tabId) => {
   sidebarRequests.get(tabId)?.wake?.();
   sidebarRequests.delete(tabId);
-  for (const provider of ['chatgpt', 'gemini']) sidebarFrames.delete(`${tabId}:${provider}`);
+  for (const key of sidebarFrames.keys()) if (key.startsWith(`${tabId}:`)) sidebarFrames.delete(key);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'openChatSprigSettings' && sender.id === chrome.runtime.id) {
+    chrome.runtime.openOptionsPage();
+    sendResponse({ ok: true });
+    return false;
+  }
   if (!message || typeof message.type !== 'string') return false;
 
   if (message.type === 'sidebarFrameIdentity' && sender.tab && sender.frameId > 0 && sender.documentId &&
       providerForUrl(sender.url) === message.provider) {
-    sidebarFrames.set(`${sender.tab.id}:${message.provider}`, sender.documentId);
+    if (message.branchId && (message.provider !== 'chatgpt' || !/^[a-zA-Z0-9-]+$/.test(message.branchId))) return false;
+    sidebarFrames.set(`${sender.tab.id}:${message.branchId ? `btw:${message.branchId}` : message.provider}`, sender.documentId);
     const request = sidebarRequests.get(sender.tab.id);
-    if (request?.provider === message.provider) request.wake?.();
+    if (request?.provider === message.provider && request?.branchId === message.branchId) request.wake?.();
     sendResponse({ documentId: sender.documentId });
     return false;
   }
 
-  if (['askSidebar', 'explainGemini', 'cancelSidebar'].includes(message.type)) {
+  if (['askSidebar', 'askBtw', 'explainGemini', 'cancelSidebar'].includes(message.type)) {
     if (!sender.tab || sender.frameId !== 0) return false;
     if (message.type === 'cancelSidebar') {
       const request = sidebarRequests.get(sender.tab.id);
       sidebarRequests.delete(sender.tab.id);
       request?.wake?.();
       if (request?.documentId) chrome.tabs.sendMessage(sender.tab.id, {
-        type: 'sidebarCancel', provider: request.provider, id: request.id
+        type: 'sidebarCancel', provider: request.provider, ...(request.branchId ? { branchId: request.branchId } : {}), id: request.id
       }, { documentId: request.documentId }).catch(() => {});
       sendResponse({ ok: true });
       return false;
     }
     const provider = message.provider || 'chatgpt';
     const sourceProvider = providerForUrl(sender.url);
+    if (message.type === 'askBtw' && (sourceProvider !== 'chatgpt' || provider !== 'chatgpt' ||
+        typeof message.branchId !== 'string' || !/^[a-zA-Z0-9-]+$/.test(message.branchId))) return false;
+    if (message.type !== 'askBtw' && message.branchId) return false;
     const allowedSource = message.type === 'explainGemini'
       ? sourceProvider === 'chatgpt' && provider === 'gemini'
       : sourceProvider === provider;

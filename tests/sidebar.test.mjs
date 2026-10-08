@@ -4,10 +4,13 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-function frameHarness({ draft = '', generating = false, sendEnabled = true, inputPresent = true, rich = false } = {}) {
+function frameHarness({ draft = '', generating = false, sendEnabled = true, inputPresent = true, rich = false, branchId, pathname = '/c/branched', branchSource = 'source' } = {}) {
   let listener;
   let sends = 0;
   let clock = 0;
+  const reports = [];
+  let branchObserve;
+  const location = { pathname, search: '' };
   class TextArea {
     constructor() { this._value = draft; this.isConnected = true; }
     get value() { return this._value; }
@@ -24,9 +27,10 @@ function frameHarness({ draft = '', generating = false, sendEnabled = true, inpu
   } : new TextArea();
   if (rich) input.value = draft;
   const send = { disabled: !sendEnabled, getAttribute() { return null; }, getClientRects() { return [{}]; }, click() { sends++; } };
-  const window = { name: 'cgpt_helper_overlay_frame', top: {}, self: {}, parent: {}, addEventListener() {}, getSelection() { return { removeAllRanges() {}, addRange() {} }; } };
+  const window = { name: branchId ? `cgpt_helper_btw_${branchId}_${branchSource}` : 'cgpt_helper_overlay_frame', top: {}, self: {}, parent: { postMessage(message) { reports.push(message); } }, setInterval() {}, clearInterval() {}, addEventListener() {}, getSelection() { return { removeAllRanges() {}, addRange() {} }; } };
   const context = vm.createContext({
     window, HTMLTextAreaElement: TextArea, HTMLInputElement: TextArea, Event: class {},
+    location, URL, URLSearchParams, MutationObserver: class { constructor(fn) { branchObserve = fn; } observe() {} }, sessionStorage: { getItem() {}, setItem() {} },
     Date: { now: () => clock }, setTimeout(fn, ms) { clock += ms; queueMicrotask(fn); },
     chrome: { runtime: { id: 'extension', sendMessage: async () => ({}), onMessage: { addListener(fn) { listener = fn; } } }, storage: { onChanged: { addListener() {} } } },
     cgptLoadSettings: async () => ({ hideChatgptSidebar: false, focusPromptOnOpen: false }),
@@ -43,7 +47,7 @@ function frameHarness({ draft = '', generating = false, sendEnabled = true, inpu
     }
   });
   vm.runInContext(read('content/frame-helper.js'), context);
-  return { input, sends: () => sends, dispatch: (message, sender = { id: 'extension' }) => new Promise((resolve) => {
+  return { input, location, reports, observeBranch: () => branchObserve?.(), sends: () => sends, dispatch: (message, sender = { id: 'extension' }) => new Promise((resolve) => {
     if (!listener(message, sender, resolve)) resolve(undefined);
   }) };
 }
@@ -95,7 +99,7 @@ function backgroundHarness({ holdFill = false } = {}) {
     tabs: { onRemoved: event(), async sendMessage(tabId, message, options) {
       routed.push({ tabId, message, options });
       if (holdFill && message.type === 'sidebarFill') return new Promise(resolve => { releaseFill = resolve; });
-      return message.type === 'sidebarProbe' ? { ready: true, provider: message.provider } : { message: 'Selection sent.' };
+      return message.type === 'sidebarProbe' ? { ready: true, provider: message.provider, ...(message.branchId ? { branchId: message.branchId } : {}) } : { message: 'Selection sent.' };
     } }
   };
   vm.runInNewContext(read('background.js').replace(/^import .*;\n/, ''), {
@@ -195,4 +199,82 @@ test('Explain with Gemini routes ChatGPT responses to the Gemini document; ordin
     assert.equal(await h.dispatch({ type: 'explainGemini', provider: 'gemini', text: 'response' }, invalid), undefined);
   }
   assert.equal(h.routed.length, 2);
+});
+
+test('BTW frames reject ordinary sidebar fills and every other branch ID', async () => {
+  const h = frameHarness({ branchId: 'branch-one' });
+  assert.equal(await h.dispatch(fill()), undefined);
+  assert.equal(await h.dispatch(fill({ branchId: 'branch-two' })), undefined);
+  const result = await h.dispatch(fill({ branchId: 'branch-one' }));
+  assert.equal(result.filled, true);
+  assert.equal(result.sent, true);
+  assert.equal(h.sends(), 1);
+});
+
+test('native branch initialization and fallback to source never fill or submit', async () => {
+  for (const pathname of ['/branch/source/message', '/c/source', '/']) {
+    const h = frameHarness({ branchId: 'branch-one', pathname });
+    const probe = await h.dispatch({ type: 'sidebarProbe', branchId: 'branch-one' });
+    assert.equal(probe.ready, false);
+    const result = await h.dispatch(fill({ branchId: 'branch-one' }));
+    assert.match(result.message, /No input/);
+    assert.equal(h.input.value, '');
+    assert.equal(h.sends(), 0);
+  }
+});
+
+test('BTW routing isolates multiple branches from the ordinary temporary chat', async () => {
+  const h = backgroundHarness();
+  const sender = { tab: { id: 7 }, frameId: 0, url: 'https://chatgpt.com/c/source' };
+  for (const branchId of [undefined, 'branch-one', 'branch-two']) {
+    await h.dispatch({ type: 'sidebarFrameIdentity', provider: 'chatgpt', ...(branchId ? { branchId } : {}) },
+      { ...sender, frameId: 1, documentId: branchId || 'temporary' });
+  }
+  for (const branchId of ['branch-one', 'branch-two', undefined]) {
+    await h.dispatch({ type: branchId ? 'askBtw' : 'askSidebar', provider: 'chatgpt', branchId, text: 'question', autoSend: true }, sender);
+    assert.equal(h.routed.at(-1).options.documentId, branchId || 'temporary');
+    assert.equal(h.routed.at(-1).message.branchId, branchId);
+  }
+});
+
+test('BTW requests reject non-ChatGPT sources, missing or malformed branch IDs', async () => {
+  const h = backgroundHarness();
+  for (const [branchId, url, frameId] of [[undefined,'https://chatgpt.com/',0],['bad/id','https://chatgpt.com/',0],['one','https://gemini.google.com/app',0],['one','https://example.com/',0],['one','https://chatgpt.com/',1]]) {
+    assert.equal(await h.dispatch({ type:'askBtw',branchId,text:'question' },{tab:{id:7},url,frameId}),undefined);
+  }
+  assert.equal(h.routed.length, 0);
+});
+
+test('BTW cancellation carries the branch identity to only its pending document', async () => {
+  const h = backgroundHarness({holdFill:true});
+  const sender={tab:{id:7},frameId:0,url:'https://chatgpt.com/c/source'};
+  await h.dispatch({type:'sidebarFrameIdentity',provider:'chatgpt',branchId:'one'},{...sender,frameId:1,documentId:'btw-document'});
+  const pending=h.dispatch({type:'askBtw',branchId:'one',text:'question'},sender);
+  await new Promise(setImmediate);
+  await h.dispatch({type:'cancelSidebar'},sender);
+  assert.equal(h.routed.at(-1).message.branchId,'one');
+  assert.equal(h.routed.at(-1).options.documentId,'btw-document');
+  h.release();await pending;
+});
+
+test('BTW URL reports follow persisted IDs and keep explicit temporary mode on reopening', () => {
+  const h=frameHarness({branchId:'one',pathname:'/c/client-id'});
+  assert.equal(h.reports.at(-1).url,'https://chatgpt.com/c/client-id');
+  const initial=h.reports.length;h.observeBranch();
+  assert.equal(h.reports.length,initial);
+  h.location.pathname='/c/server-id';h.observeBranch();
+  assert.equal(h.reports.at(-1).url,'https://chatgpt.com/c/server-id');
+  h.location.search='?temporary-chat=true';h.observeBranch();
+  assert.equal(h.reports.at(-1).url,'https://chatgpt.com/c/server-id?temporary-chat=true');
+  h.location.pathname='/c/source';const count=h.reports.length;h.observeBranch();
+  assert.equal(h.reports.length,count);
+});
+
+test('ChatGPT local thread URLs are ready to send but are never stored as reloadable branch URLs', async () => {
+  const h=frameHarness({branchId:'one',pathname:'/c/local-chatgpt%3Aabcd-1234'});
+  assert.equal((await h.dispatch({type:'sidebarProbe',branchId:'one'})).ready,true);
+  assert.equal(h.reports.at(-1).url,null);
+  assert.equal((await h.dispatch(fill({branchId:'one'}))).sent,true);
+  h.location.pathname='/c/persisted-server-id';h.observeBranch();
+  assert.equal(h.reports.at(-1).url,'https://chatgpt.com/c/persisted-server-id');
 });

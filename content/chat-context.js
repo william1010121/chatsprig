@@ -6,17 +6,22 @@
   const conversationPath = path => /\/c\/[^/]+/.test(path);
   let known = null;
   let modeRoots = [];
+  const composerSelector = 'form[data-type="unified-composer"], form[data-thread-find-composer]';
+  const inputSelector = '#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown][contenteditable="true"]';
+  const getComposer = () => [...document.querySelectorAll(composerSelector)].filter(visible).at(-1) || null;
+  const getInput = () => [...document.querySelectorAll(inputSelector)].filter(visible).at(-1) || null;
+  const getConversationRoot = () => [...document.querySelectorAll('main, [role="region"][aria-label="Conversation"]')].filter(visible).at(-1) || null;
   function remember(mode, composer) {
     const changed = known?.mode !== mode || known?.path !== location.pathname;
     known = { mode, composer, path: location.pathname };
     if (changed && conversationPath(location.pathname)) {
-      try { sessionStorage.setItem('chatsprig:surface:' + location.pathname, mode); } catch {}
+      try { sessionStorage.setItem('chatsprig:surface:2.5.0:' + location.pathname, mode); } catch {}
     }
     return mode;
   }
   function getMode() {
     if (!isChatgpt) return 'unknown';
-    const composer = document.querySelector('form[data-type="unified-composer"], form[data-thread-find-composer]');
+    const composer = getComposer();
     modeRoots = composer ? [composer] : [];
     if (!composer) return 'unknown';
     const triggers = [...composer.querySelectorAll('button[aria-haspopup="menu"]')];
@@ -41,18 +46,22 @@
     if (hasSelector) {
       if (evidence.size === 1 && !evidence.has('unknown')) return remember([...evidence][0], composer);
       known = null;
-      try { sessionStorage.removeItem('chatsprig:surface:' + location.pathname); } catch {}
+      try { sessionStorage.removeItem('chatsprig:surface:2.5.0:' + location.pathname); } catch {}
       return 'unknown';
     }
-    // Newer layouts: new chats show a pressed Chat/Work button; every Chat
-    // composer carries data-chatgpt-composer, which Work composers omit.
+    // Both surfaces can keep a hidden previous composer during navigation.
+    // Missing Chat evidence is not positive Work evidence.
     if (composer.hasAttribute?.('data-thread-find-composer')) {
       const pressedButtons = [...document.querySelectorAll('[role="group"][aria-label="Composer mode"] button[aria-pressed="true"]')];
       modeRoots.push(...pressedButtons);
       const pressed = pressedButtons.filter(visible).map(el => el.textContent.trim());
       if (pressed.length === 1 && /^(Chat|聊天|對話|对话)$/i.test(pressed[0])) return remember('chat', composer);
       if (pressed.length === 1 && /^(Work|工作)$/i.test(pressed[0])) return remember('work', composer);
-      return remember(composer.hasAttribute('data-chatgpt-composer') ? 'chat' : 'work', composer);
+      const workInput = [...composer.querySelectorAll('[data-composer-markdown][contenteditable="true"]')].filter(visible)
+        .some(el => /^(Work with ChatGPT|與 ChatGPT 工作|与 ChatGPT 工作)$/i.test(el.getAttribute('aria-label') || '') ||
+          /^(Work with ChatGPT|與 ChatGPT 工作|与 ChatGPT 工作)$/i.test(el.querySelector('[data-placeholder]')?.getAttribute('data-placeholder') || ''));
+      if (workInput) return remember('work', composer);
+      if (composer.hasAttribute('data-chatgpt-composer')) return remember('chat', composer);
     }
     // Existing Chat conversations have a Thinking effort pill. The Work pill
     // carries WorkTrigger; inspect descendants because the wrapper can move.
@@ -87,7 +96,7 @@
     }
     if (conversationPath(location.pathname)) {
       try {
-        const cached = sessionStorage.getItem('chatsprig:surface:' + location.pathname);
+        const cached = sessionStorage.getItem('chatsprig:surface:2.5.0:' + location.pathname);
         if (cached === 'chat' || cached === 'work') return remember(cached, composer);
       } catch {}
     }
@@ -113,7 +122,7 @@
     return { count: users.length, key: JSON.stringify(users) };
   }
   function getHistory() {
-    const main = document.querySelector('main');
+    const main = getConversationRoot();
     if (!main || main.querySelector('[aria-busy="true"]')) return null;
     // Hidden alternative branches do not belong to the current conversation.
     const turns = [...main.querySelectorAll('[data-testid^="conversation-turn-"]')].filter(visible);
@@ -240,6 +249,7 @@
     return mode;
   }
   globalThis.cgptChatContext = { getMode: refreshMode, getHistory, getCountState, beginSendObservation,
+    getInput, getComposer, getConversationRoot,
     get revision() { refreshMode(); return revision; } };
   const modeSelector = 'form[data-type="unified-composer"], form[data-thread-find-composer], [role="radiogroup"], [role="group"][aria-label="Composer mode"], [data-testid="composer-intelligence-picker-content"], [data-tpp-toggle-value]';
   const messageSelector = '[data-message-author-role], [data-chatgpt-search-unit-key]';

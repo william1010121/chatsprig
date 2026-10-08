@@ -103,8 +103,9 @@
     html.${CLASS} [data-turn-id] [data-conversation-screenshot-content] {
       max-width: none !important;
     }
-    /* Some layouts place the composer inside this wrapper. Keep its native width. */
-    html.${CLASS} [data-thread-user-message-navigation-content]:not(:has(form)) {
+    /* Exclude only the native composer. In-message UI forms must not disable
+       reading margins for the whole transcript. */
+    html.${CLASS} [data-thread-user-message-navigation-content]:not(:has(form[data-chatgpt-composer], form[data-type="unified-composer"], form[data-thread-find-composer])) {
       max-width: none !important; margin-inline: 0 !important; padding-inline: var(--cgpt-helper-compact-side-margin, 12%) !important;
     }
     /* The composer measures ChatGPT's responsive native content width. Let UI
