@@ -16,6 +16,24 @@
   document.documentElement.appendChild(host);
   const button = shadow.querySelector('button');
   let selectedText = '';
+  let pendingRange = null;
+  let positioning = false;
+  let buttonWidth = 0;
+  function hide() {
+    pendingRange = null;
+    host.style.display = 'none';
+  }
+  function position() {
+    positioning = false;
+    if (!pendingRange) return;
+    const rect = pendingRange.getBoundingClientRect();
+    host.style.display = 'block';
+    // Its label and font do not change while selecting; avoid measuring the
+    // same button after every visibility write during a drag.
+    if (!buttonWidth) buttonWidth = host.getBoundingClientRect().width;
+    host.style.left = `${Math.max(8, Math.min(rect.right - buttonWidth, window.innerWidth - buttonWidth - 8))}px`;
+    host.style.top = `${Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 44))}px`;
+  }
   function captureSelection() {
     const selection = window.getSelection();
     const start = selection?.anchorNode?.parentElement;
@@ -24,16 +42,16 @@
       !element.closest('[contenteditable="true"], input, textarea');
     if (!selection || selection.isCollapsed || !inMessage(start) || !inMessage(end)) {
       selectedText = '';
-      host.style.display = 'none';
+      hide();
       return;
     }
     selectedText = selection.toString();
-    if (!selectedText.trim()) { host.style.display = 'none'; return; }
-    const rect = selection.getRangeAt(0).getBoundingClientRect();
-    host.style.display = 'block';
-    const width = host.getBoundingClientRect().width;
-    host.style.left = `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`;
-    host.style.top = `${Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 44))}px`;
+    if (!selectedText.trim()) { hide(); return; }
+    pendingRange = selection.getRangeAt(0);
+    if (positioning) return;
+    if (typeof requestAnimationFrame !== 'function') { position(); return; }
+    positioning = true;
+    requestAnimationFrame(position);
   }
   button.addEventListener('pointerdown', (event) => event.preventDefault());
   button.addEventListener('mousedown', (event) => event.preventDefault());
@@ -48,11 +66,11 @@
     }
     selectedText = '';
     window.getSelection()?.removeAllRanges();
-    host.style.display = 'none';
+    hide();
     globalThis.cgptAskInSidebar(text, 'gemini');
   });
   document.addEventListener('selectionchange', captureSelection);
   document.addEventListener('mouseup', captureSelection);
-  document.addEventListener('scroll', () => { host.style.display = 'none'; }, true);
-  window.addEventListener('resize', () => { host.style.display = 'none'; });
+  document.addEventListener('scroll', hide, true);
+  window.addEventListener('resize', () => { buttonWidth = 0; hide(); });
 })();

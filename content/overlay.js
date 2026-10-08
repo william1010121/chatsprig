@@ -17,7 +17,7 @@
   let provider = 'chatgpt';
   const frames = new Map();
   let focusGeneration = 0;
-  let pendingFocusUntil = 0;
+  let pendingFocus = null;
 
   function readSessionProvider() {
     try { return sessionStorage.getItem('cgptHelperProvider') === 'gemini' ? 'gemini' : 'chatgpt'; }
@@ -275,7 +275,7 @@
     }
     frame.addEventListener('load', () => {
       record.loaded = true;
-      if (provider === key && frames.get(key) === record && isOpen() && Date.now() < pendingFocusUntil) requestFocusPrompt();
+      if (provider === key && frames.get(key) === record && isOpen() && pendingFocus?.frame === frame) requestFocusPrompt();
     });
     shadow.querySelector('.body').appendChild(frame);
   }
@@ -284,7 +284,7 @@
     ensureWindow();
     if (nextProvider !== provider) {
       cancelAsk();
-      focusGeneration++;
+      cancelFocusPrompt();
     }
     provider = nextProvider;
     host.setAttribute('data-open', 'true');
@@ -297,7 +297,7 @@
 
   function hide() {
     cancelAsk();
-    focusGeneration++;
+    cancelFocusPrompt();
     if (!host) return;
     host.setAttribute('data-open', 'false');
     writeSessionOpen(false);
@@ -314,27 +314,48 @@
 
   function refresh() {
     cancelAsk();
-    focusGeneration++;
+    cancelFocusPrompt();
     show({ reload: true, focus: true });
   }
 
+  function cancelFocusPrompt() {
+    focusGeneration++;
+    const request = pendingFocus;
+    pendingFocus = null;
+    if (request) for (const timer of request.timers) window.clearTimeout(timer);
+    if (iframe) iframe.contentWindow?.postMessage({
+      source: MESSAGE_SOURCE, action: 'cancelFocusPrompt', ...(request ? { requestId: request.id } : {})
+    }, request?.origin || targetOrigin());
+  }
+
   function requestFocusPrompt() {
-    if (!iframe) return;
-    pendingFocusUntil = Date.now() + 8000;
+    if (!iframe || pendingAsk) return;
+    cancelFocusPrompt();
     const frame = iframe;
     const key = provider;
-    const generation = ++focusGeneration;
+    const generation = focusGeneration;
     const origin = targetOrigin();
+    const request = { frame, origin, id: generation, timers: [] };
+    pendingFocus = request;
+    const sendFocus = () => {
+      if (pendingFocus !== request || frame !== iframe || generation !== focusGeneration || !isOpen() || !frames.get(key)?.ready || !frames.get(key)?.loaded) return;
+      frame.focus();
+      frame.contentWindow.postMessage({ source: MESSAGE_SOURCE, action: 'focusPrompt', requestId: request.id }, origin);
+    };
     for (const delay of FOCUS_DELAYS) {
-      window.setTimeout(() => {
-        if (frame !== iframe || generation !== focusGeneration || !isOpen() || !frames.get(key)?.ready || !frames.get(key)?.loaded) return;
-        frame.focus();
-        frame.contentWindow.postMessage({ source: MESSAGE_SOURCE, action: 'focusPrompt' }, origin);
-      }, delay);
+      request.timers.push(window.setTimeout(sendFocus, delay));
     }
   }
 
   window.addEventListener('message', (event) => {
+    if (event.data?.source === MESSAGE_SOURCE && event.data.action === 'focusPromptResult') {
+      const request = pendingFocus;
+      if (!request || event.source !== request.frame.contentWindow || event.origin !== request.origin ||
+          event.data.requestId !== request.id || event.data.focused !== true) return;
+      for (const timer of request.timers) window.clearTimeout(timer);
+      pendingFocus = null;
+      return;
+    }
     const record = frames.get('gemini');
     if (!record || event.source !== record.frame.contentWindow || event.origin !== 'https://gemini.google.com' ||
         event.data?.source !== MESSAGE_SOURCE || event.data.action !== 'geminiState') return;
@@ -344,7 +365,7 @@
     window.clearTimeout(record.timer);
     if (provider === 'gemini') {
       renderProvider();
-      if (record.ready && isOpen() && settings.focusPromptOnOpen) requestFocusPrompt();
+      if (record.ready && isOpen() && pendingFocus?.frame === record.frame) requestFocusPrompt();
     }
   });
 
@@ -375,6 +396,7 @@
     if (pendingAsk) return;
     if (!['chatgpt', 'gemini'].includes(requestedProvider)) return;
     if (explainResponse && requestedProvider !== 'gemini') return;
+    cancelFocusPrompt();
     show({ provider: requestedProvider, focus: false });
     const controller = new AbortController();
     const request = { controller };

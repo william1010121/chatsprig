@@ -319,12 +319,35 @@
 
   // The picker is a short-lived React portal; remount only when DOM children change.
   let lastPath = location.pathname;
-  const observer = new MutationObserver(() => {
+  let mountScheduled = false;
+  function flushMount() {
+    mountScheduled = false;
     mount();
     if (lastPath !== location.pathname) {
       lastPath = location.pathname;
       updatePromptVisibility();
     }
+  }
+  function scheduleMount() {
+    if (mountScheduled) return;
+    mountScheduled = true;
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flushMount);
+    else if (typeof queueMicrotask === 'function') queueMicrotask(flushMount);
+    else flushMount();
+  }
+  const mountSelector = `form[data-chatgpt-composer], form[data-type="unified-composer"], form[data-thread-find-composer], ${PICKER}`;
+  const observer = new MutationObserver(records => {
+    if (!records) { flushMount(); return; }
+    let relevant = lastPath !== location.pathname || nativeComposer?.isConnected === false;
+    for (const record of records) {
+      const target = record.target?.nodeType === 3 ? record.target.parentElement : record.target;
+      if (target?.closest?.('.cgpt-helper-picker-controls, [data-message-author-role], [data-chatgpt-search-unit-key]')) continue;
+      if (target?.closest?.(PICKER)) relevant = true;
+      for (const node of [...(record.addedNodes || []), ...(record.removedNodes || [])]) {
+        if (node?.matches?.(mountSelector) || node?.querySelector?.(mountSelector)) relevant = true;
+      }
+    }
+    if (relevant) scheduleMount();
   });
   observer.observe(document.body, { childList: true, subtree: true });
   chrome.storage.onChanged.addListener((changes, area) => {

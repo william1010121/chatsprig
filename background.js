@@ -66,7 +66,17 @@ chrome.action.onClicked.addListener(() => {
 
 const sidebarRequests = new Map();
 const sidebarFrames = new Map();
-const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function waitForSidebar(request, ms) {
+  return new Promise((resolve) => {
+    const wake = () => {
+      clearTimeout(timer);
+      if (request.wake === wake) request.wake = null;
+      resolve();
+    };
+    const timer = setTimeout(wake, ms);
+    request.wake = wake;
+  });
+}
 const providerForUrl = (url = '') => /^https:\/\/gemini\.google\.com\//.test(url) ? 'gemini'
   : /^https:\/\/(chatgpt\.com|chat\.openai\.com)\//.test(url) ? 'chatgpt' : null;
 
@@ -74,7 +84,7 @@ async function askSidebar(message, sender) {
   const tabId = sender.tab.id;
   const provider = message.provider || 'chatgpt';
   if (sidebarRequests.has(tabId)) return { message: 'Sidebar is still handling the previous selection.' };
-  const request = { id: crypto.randomUUID(), provider, documentId: null };
+  const request = { id: crypto.randomUUID(), provider, documentId: null, wake: null };
   sidebarRequests.set(tabId, request);
   try {
     const deadline = Date.now() + 35000;
@@ -87,7 +97,8 @@ async function askSidebar(message, sender) {
         } catch {
           if (sidebarFrames.get(`${tabId}:${provider}`) === documentId) sidebarFrames.delete(`${tabId}:${provider}`);
         }
-        if (frame?.ready && frame.provider === provider && sidebarRequests.get(tabId) === request) {
+        if (frame?.ready && frame.provider === provider && sidebarRequests.get(tabId) === request &&
+            sidebarFrames.get(`${tabId}:${provider}`) === documentId) {
           request.documentId = documentId;
           return await chrome.tabs.sendMessage(tabId, {
             type: 'sidebarFill', provider, id: request.id, text: message.text, autoSend: message.autoSend === true
@@ -97,17 +108,23 @@ async function askSidebar(message, sender) {
         // Helpers register their own exact document; discovery responses are never used as a fill target.
         chrome.tabs.sendMessage(tabId, { type: 'sidebarDiscover', provider }).catch(() => {});
       }
-      await pause(200);
+      if (sidebarRequests.get(tabId) !== request) break;
+      // A registration received during the probe can be used immediately.
+      if (sidebarFrames.get(`${tabId}:${provider}`) !== documentId) continue;
+      await waitForSidebar(request, Math.min(documentId ? 200 : 1000, deadline - Date.now()));
     }
+    if (sidebarRequests.get(tabId) !== request) return { message: 'Cancelled.' };
     return { message: 'Sidebar is not ready. Check sign-in and temporary mode, then try again.' };
   } catch {
     return { message: 'Sidebar changed while filling. Check the draft before trying again.' };
   } finally {
+    request.wake?.();
     if (sidebarRequests.get(tabId) === request) sidebarRequests.delete(tabId);
   }
 }
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  sidebarRequests.get(tabId)?.wake?.();
   sidebarRequests.delete(tabId);
   for (const provider of ['chatgpt', 'gemini']) sidebarFrames.delete(`${tabId}:${provider}`);
 });
@@ -118,6 +135,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'sidebarFrameIdentity' && sender.tab && sender.frameId > 0 && sender.documentId &&
       providerForUrl(sender.url) === message.provider) {
     sidebarFrames.set(`${sender.tab.id}:${message.provider}`, sender.documentId);
+    const request = sidebarRequests.get(sender.tab.id);
+    if (request?.provider === message.provider) request.wake?.();
     sendResponse({ documentId: sender.documentId });
     return false;
   }
@@ -127,6 +146,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'cancelSidebar') {
       const request = sidebarRequests.get(sender.tab.id);
       sidebarRequests.delete(sender.tab.id);
+      request?.wake?.();
       if (request?.documentId) chrome.tabs.sendMessage(sender.tab.id, {
         type: 'sidebarCancel', provider: request.provider, id: request.id
       }, { documentId: request.documentId }).catch(() => {});

@@ -100,14 +100,14 @@
   }
   function intercept(event) {
     if (replaying || event.defaultPrevented) return;
+    if (event.type === 'keydown' && (event.key !== 'Enter' || event.shiftKey || event.ctrlKey ||
+        event.altKey || event.metaKey || event.isComposing || event.keyCode === 229)) return;
+    if (event.type === 'click' && !event.target.closest?.(sendSelector)) return;
     const input = document.querySelector(inputSelector);
     if (!input) return;
     if (event.type === 'keydown') {
-      if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey ||
-          event.isComposing || event.keyCode === 229 || !input.contains(event.target)) return;
-    } else if (event.type === 'click') {
-      if (!event.target.closest?.(sendSelector)) return;
-    } else if (!event.target.contains(input)) return;
+      if (!input.contains(event.target)) return;
+    } else if (event.type !== 'click' && !event.target.contains(input)) return;
     if (pending) { event.preventDefault(); event.stopImmediatePropagation(); return; }
     // A first send can arrive before Chrome Sync has returned its settings.
     // Hold that intent instead of silently sending without the configured prefix.
@@ -129,8 +129,12 @@
   }
   function processSend(event, input) {
     const prompt = typeof settings.systemPrompt === 'string' ? settings.systemPrompt.trim() : '';
+    if (settings.appendSystemPrompt !== true || !prompt) {
+      context.beginSendObservation();
+      return;
+    }
     const history = eligibleHistory();
-    if (settings.appendSystemPrompt !== true || !prompt || !history) {
+    if (!history) {
       context.beginSendObservation();
       return;
     }

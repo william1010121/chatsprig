@@ -82,28 +82,45 @@
   }
 
   let focusTimer = null;
+  let focusRequest = null;
 
-  function focusPromptInputWhenReady() {
-    if (focusTimer) window.clearInterval(focusTimer);
+  function cancelFocusPrompt(requestId) {
+    if (requestId !== undefined && focusRequest?.id !== requestId) return;
+    if (focusTimer !== null) window.clearInterval(focusTimer);
+    focusTimer = null;
+    focusRequest = null;
+  }
 
+  function focusPromptInputWhenReady(requestId, origin) {
+    cancelFocusPrompt();
+    if (activeFill) return;
+    const request = { id: requestId };
+    focusRequest = request;
     let attempts = 0;
-    focusTimer = window.setInterval(() => {
+    const attempt = () => {
+      if (focusRequest !== request || activeFill) { cancelFocusPrompt(); return true; }
       attempts += 1;
       const input = findPromptInput();
 
-      if (input) {
-        focusElement(input);
-        moveCaretToEnd(input);
-        window.clearInterval(focusTimer);
-        focusTimer = null;
-        return;
+      if (input && !input.disabled && input.getClientRects().length) {
+        if (document.activeElement !== input) {
+          focusElement(input);
+          if (document.activeElement === input) moveCaretToEnd(input);
+        }
+        if (document.activeElement === input) {
+          cancelFocusPrompt();
+          window.parent.postMessage({ source: MESSAGE_SOURCE, action: 'focusPromptResult', requestId, focused: true }, origin);
+          return true;
+        }
       }
 
       if (attempts >= 80) {
-        window.clearInterval(focusTimer);
-        focusTimer = null;
+        cancelFocusPrompt();
+        return true;
       }
-    }, 150);
+      return false;
+    };
+    if (!attempt()) focusTimer = window.setInterval(attempt, 150);
   }
 
   async function applySettings() {
@@ -116,7 +133,8 @@
   window.addEventListener('message', (event) => {
     const data = event.data;
     if (event.source !== window.parent || !data || data.source !== MESSAGE_SOURCE) return;
-    if (data.action === 'focusPrompt') focusPromptInputWhenReady();
+    if (data.action === 'cancelFocusPrompt') cancelFocusPrompt(data.requestId);
+    else if (data.action === 'focusPrompt' && Number.isSafeInteger(data.requestId)) focusPromptInputWhenReady(data.requestId, event.origin === 'null' ? '*' : event.origin);
   });
 
   let activeFill = null;
@@ -138,6 +156,7 @@
     if (handled.has(message.id) || activeFill) return { message: 'Selection already handled or sidebar busy.' };
     handled.add(message.id);
     const operation = { id: message.id, cancelled: false };
+    cancelFocusPrompt();
     activeFill = operation;
     try {
       let input;
@@ -221,7 +240,5 @@
     if (area === 'sync' && 'hideChatgptSidebar' in changes) applySettings();
   });
 
-  applySettings().then((settings) => {
-    if (settings.focusPromptOnOpen) focusPromptInputWhenReady();
-  });
+  applySettings();
 })();

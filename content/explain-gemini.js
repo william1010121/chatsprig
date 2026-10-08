@@ -38,10 +38,13 @@
     });
   }
 
-  function mount() {
-    for (const message of document.querySelectorAll(MESSAGE)) {
+  function mount(root = document) {
+    const messages = root.matches?.(MESSAGE) ? [root] : [];
+    messages.push(...(root.querySelectorAll?.(MESSAGE) || []));
+    for (const message of messages) {
       // The response actions are siblings of the message in older ChatGPT layouts.
       const scope = message.closest('[data-talvt-turn-state], [data-testid^="conversation-turn-"]') || message;
+      if (scope.querySelector?.(`.${BUTTON}`)) continue;
       const copy = [...scope.querySelectorAll('button[data-testid="copy-turn-action-button"], button[aria-label="Copy"], button[aria-label="Copied"], button[aria-label="已複製"], button[aria-label="已复制"], button[aria-label="複製"], button[aria-label="复制"]')]
         .find(button => !button.closest('pre, .markdown, [data-markdown-text-style]'));
       if (!copy) continue;
@@ -79,10 +82,33 @@
     }
   }
   let scheduled = false;
-  new MutationObserver(() => {
+  const roots = new Set();
+  function scheduleMount(root) {
+    roots.add(root);
     if (scheduled) return;
     scheduled = true;
-    queueMicrotask(() => { scheduled = false; mount(); });
+    const schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : queueMicrotask;
+    schedule(() => {
+      scheduled = false;
+      const pending = [...roots];
+      roots.clear();
+      for (const candidate of pending) {
+        if (candidate.isConnected !== false) mount(candidate);
+      }
+    });
+  }
+  new MutationObserver(records => {
+    if (!records) { scheduleMount(document); return; }
+    for (const record of records) {
+      const owner = record.target.closest?.('[data-talvt-turn-state], [data-testid^="conversation-turn-"]') ||
+        record.target.closest?.(MESSAGE);
+      if (owner) scheduleMount(owner);
+      for (const node of record.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        const turn = node.closest?.('[data-talvt-turn-state], [data-testid^="conversation-turn-"]');
+        scheduleMount(turn || node);
+      }
+    }
   }).observe(document.body, { childList: true, subtree: true });
   mount();
 })();
