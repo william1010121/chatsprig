@@ -369,11 +369,12 @@
   }
 
   // Shared only with this extension's other content scripts (isolated world).
-  globalThis.cgptAskInSidebar = async (text, requestedProvider = 'chatgpt') => {
+  globalThis.cgptAskInSidebar = async (text, requestedProvider = 'chatgpt', explainResponse = false) => {
     await ready;
     if (typeof text !== 'string' || !text.trim()) return;
     if (pendingAsk) return;
     if (!['chatgpt', 'gemini'].includes(requestedProvider)) return;
+    if (explainResponse && requestedProvider !== 'gemini') return;
     show({ provider: requestedProvider, focus: false });
     const controller = new AbortController();
     const request = { controller };
@@ -382,7 +383,7 @@
     try {
       // Runtime routing keeps auto-send commands out of the page's message channel.
       const result = await chrome.runtime.sendMessage({
-        type: 'askSidebar', provider: requestedProvider, text, autoSend: settings.autoSendAskInSidebar === true
+        type: explainResponse ? 'explainGemini' : 'askSidebar', provider: requestedProvider, text, autoSend: settings.autoSendAskInSidebar === true
       });
       if (!controller.signal.aborted) askStatus(result?.message || 'Could not fill sidebar. Please try again.');
     } catch {

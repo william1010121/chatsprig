@@ -6,6 +6,7 @@ const source = fs.readFileSync(new URL('../content/compact-view.js', import.meta
 async function harness() {
   const elements = [], saved = [], events = {};
   const classes = new Set();
+  const variables = {};
   let mode = 'chat', count = 0, change;
   function element() {
     const el = { children: [], attrs: {}, listeners: {}, hidden: false,
@@ -17,7 +18,7 @@ async function harness() {
     elements.push(el); return el;
   }
   const picker = element();
-  const documentElement = element(); documentElement.classList = { toggle(name, enabled) {
+  const documentElement = element(); documentElement.style = { setProperty(name, value) { variables[name] = value; } }; documentElement.classList = { toggle(name, enabled) {
     if (enabled) classes.add(name); else classes.delete(name);
   } };
   vm.runInNewContext(source, {
@@ -26,12 +27,12 @@ async function harness() {
     cgptLoadSettings: async () => ({ compactView: false, compactJoinParagraphs: true, appendSystemPrompt: true, systemPromptInterval: 3 }),
     chrome: { storage: { sync: { set: async value => saved.push(value) }, onChanged: { addListener(callback) { change = callback; } } } },
     document: { documentElement, body: {}, createElement: element,
-      getElementById: id => elements.find(el => el.id === id) || null, querySelector: () => picker },
+      getElementById: id => elements.find(el => el.id === id) || null, querySelector: selector => selector.startsWith('form') ? null : picker },
     window: { addEventListener(type, callback) { events[type] = callback; } },
     MutationObserver: class { observe() {} }
   });
   await new Promise(setImmediate);
-  return { picker, saved, classes, style: elements.find(el => el.id === 'cgpt-helper-compact-style').textContent,
+  return { picker, saved, classes, variables, settings: elements.find(el => el.id === 'cgpt-helper-compact-settings'), style: elements.find(el => el.id === 'cgpt-helper-compact-style').textContent,
     prompt: elements.find(el => el.id === 'cgpt-helper-system-prompt-toggle'),
     compact: elements.find(el => el.id === 'cgpt-helper-compact-toggle'),
     mode(value) { mode = value; events['cgpt-helper-mode-change'](); },
@@ -42,7 +43,7 @@ test('prompt icon hides in Work and unknown modes while Compact remains availabl
   const h = await harness();
   assert.equal(h.prompt.hidden, false); assert.match(h.prompt.innerHTML, /<svg/);
   assert.match(h.prompt.title, /Every 3 messages/);
-  assert.deepEqual(h.picker.children[0].children, [h.prompt, h.compact]);
+  assert.deepEqual(h.picker.children[0].children, [h.prompt, h.compact, h.settings]);
   for (const mode of ['work', 'unknown']) {
     h.mode(mode); assert.equal(h.prompt.hidden, true); assert.equal(h.compact.hidden, false);
     await h.prompt.listeners.click({ stopPropagation() {} }); assert.equal(h.saved.length, 0);
@@ -61,4 +62,18 @@ test('joining paragraphs can be changed without disabling other compact spacing'
   assert.ok(!h.classes.has('cgpt-helper-compact-join-paragraphs'));
   assert.match(h.style, /html\.cgpt-helper-compact\.cgpt-helper-compact-join-paragraphs/);
   assert.match(h.style, /html\.cgpt-helper-compact :is\(\[data-message-author-role="assistant"\] \.markdown, \[data-markdown-text-style="assistant-message"\]\) li/);
+});
+
+test('compact layout validates synced slider values and retains defaults for invalid settings', async () => {
+  const h = await harness();
+  assert.equal(h.variables['--cgpt-helper-compact-line-height'], '1.65');
+  assert.equal(h.variables['--cgpt-helper-compact-side-margin'], '12%');
+  h.change({ compactLineHeight: { newValue: 2.1 }, compactSideMargin: { newValue: 20 } });
+  assert.equal(h.variables['--cgpt-helper-compact-line-height'], '2.1');
+  assert.equal(h.variables['--cgpt-helper-compact-side-margin'], '20%');
+  for (const value of [null, '2', NaN, Infinity, -1, 30]) {
+    h.change({ compactLineHeight: { newValue: value }, compactSideMargin: { newValue: value } });
+    assert.equal(h.variables['--cgpt-helper-compact-line-height'], '1.65');
+    assert.equal(h.variables['--cgpt-helper-compact-side-margin'], '12%');
+  }
 });
