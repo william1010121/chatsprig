@@ -1,0 +1,58 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ChatGPT sidebar fixture</title>
+<!-- Synthetic sidebar: the current [role=list] layout (Recents) and the older ul/li layout (Pinned).
+     Titles and IDs are made up; structure mirrors chatgpt.com as of October 2026. -->
+<style>
+  body { margin: 0; font: 14px system-ui, sans-serif; }
+  aside { width: 300px; }
+  ul { margin: 0; padding: 0; list-style: none; }
+  li > a { display: flex; height: 36px; align-items: center; padding: 0 8px; color: inherit; text-decoration: none; }
+  [role="list"] { display: flex; flex-direction: column; }
+  [role="group"] > div { display: flex; height: 36px; align-items: center; padding: 0 8px; gap: 4px; }
+  [role="group"] a { display: flex; flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+  [role="group"] button { width: 20px; height: 20px; padding: 0; border: 0; }
+  .skeleton { height: 36px; background: #eee; }
+  h2 { margin: 8px; font-size: 12px; }
+</style>
+<aside id="app-shell-sidebar">
+  <nav aria-label="App navigation"><a data-sidebar-item href="/">New chat</a></nav>
+  <nav aria-label="Home">
+    <section>
+      <h2>Pinned</h2>
+      <ul id="pinned">
+        <li><a data-sidebar-item="true" href="/c/00000000-0000-4000-8000-000000000031" aria-label="Old child, pinned conversation">Old child</a></li>
+        <li><a data-sidebar-item="true" href="/c/00000000-0000-4000-8000-000000000030" aria-label="Old parent, pinned conversation">Old parent</a></li>
+      </ul>
+    </section>
+    <section>
+      <h2>Recents</h2>
+      <div role="list" id="recents"></div>
+    </section>
+  </nav>
+</aside>
+<script>
+  const rows = [
+    ['00000000-0000-4000-8000-000000000002', 'Side question'],
+    ['00000000-0000-4000-8000-000000000020', 'Other one'],
+    ['00000000-0000-4000-8000-000000000003', 'Follow-up question'],
+    null,
+    ['00000000-0000-4000-8000-000000000001', 'Topic A'],
+    ['00000000-0000-4000-8000-000000000011', '分支 · Native topic'],
+    ['00000000-0000-4000-8000-000000000021', 'Other two'],
+    ['00000000-0000-4000-8000-000000000010', 'Native topic']
+  ];
+  const list = document.getElementById('recents');
+  for (const row of rows) {
+    if (!row) { const skeleton = document.createElement('div'); skeleton.className = 'skeleton'; list.appendChild(skeleton); continue; }
+    const [id, title] = row;
+    const item = document.createElement('div');
+    item.setAttribute('role', 'listitem');
+    item.dataset.sidebarChatgptConversationKey = `chatgpt:conversation:${id}`;
+    item.innerHTML = `<div role="group"><div><a data-interactive-row-link="true" href="/c/${id}"><span data-thread-title="true"></span></a><button aria-label="Chat actions">…</button><button aria-label="Pin chat">p</button></div></div>`;
+    item.querySelector('[role="group"]').setAttribute('aria-label', title);
+    item.querySelector('a').setAttribute('aria-label', title);
+    item.querySelector('span').textContent = title;
+    list.appendChild(item);
+  }
+</script>

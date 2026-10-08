@@ -75,6 +75,23 @@ const pinned = await live();
 assert(pinned.includes(idle[0]),'Attachment-only draft frame was released');
 assert(pinned.includes(idle[1]),'Generating branch frame was released');
 assert(pinned.length===5,`Expected active + 2 idle + 2 busy frames, got ${pinned.length}`);
+// Sidebar Clean deleted two branch chats: one hidden, one showing in the open window.
+const chatOf = id => page.evaluate(id=>/\/c\/([a-zA-Z0-9-]+)/.exec(Object.values(qa.storage).find(branch=>branch?.id===id).url)[1],id);
+const hiddenGone = pinned.find(id=>id!==ids.at(-1)), showingGone = ids.at(-1);
+await open(showingGone);
+await page.evaluate(chats=>globalThis.cgptCloseBtwChats(chats),[await chatOf(hiddenGone),await chatOf(showingGone)]);
+const afterClean = await page.evaluate(()=>{
+  const shadow=document.querySelector('#cgpt-helper-overlay').shadowRoot;
+  const visible=[...shadow.querySelectorAll('iframe')].filter(f=>!f.hidden);
+  return {open:document.querySelector('#cgpt-helper-overlay').getAttribute('data-open'),visible:visible.map(f=>f.name),
+    rail:[...shadow.querySelectorAll('.rail button')].map(b=>b.dataset.key)};
+});
+console.log({afterClean});
+const remaining = (await live()).filter(Boolean);
+assert(!remaining.includes(hiddenGone) && !remaining.includes(showingGone),'Deleted branch frames must be removed');
+assert(remaining.length===3,`Other branch frames must stay, got ${remaining.length}`);
+assert(afterClean.open==='true' && afterClean.visible.length===1 && !afterClean.visible[0].startsWith('cgpt_helper_btw_'),'The open window must fall back to the main chat');
+assert(!afterClean.rail.some(key=>key===`btw:${hiddenGone}`||key===`btw:${showingGone}`),'The dock must drop deleted branches');
 const results={passed:true,ids,frames:await frames(),routes:await page.evaluate(()=>qa.routes.length)};
 console.log(results);
 await page.screenshot({path:`${root}/draft/btw-frame-limit/after.png`});
