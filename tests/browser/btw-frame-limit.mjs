@@ -60,6 +60,21 @@ await page.evaluate(()=>{[...document.querySelector('#cgpt-helper-overlay').shad
 await page.click('loc=css:button[data-action=close]');
 await createBranch(7);
 assert((await frames()).length===3,'Cleared branch frame stayed pinned');
+// Attachment-only drafts and streaming responses pin their frames too.
+const decorate = (id, html) => page.evaluate(([id,html])=>{
+  const frame=[...document.querySelector('#cgpt-helper-overlay').shadowRoot.querySelectorAll('iframe')].find(f=>f.name.includes(id));
+  frame.contentDocument.querySelector('form').insertAdjacentHTML('afterbegin',html);
+},[id,html]);
+const live = async () => (await frames()).map(f=>f.id);
+const idle = (await live()).filter(id=>id!==ids.at(-1));
+await decorate(idle[0],'<button type="button" aria-label="Remove file: notes.pdf">×</button>');
+await decorate(idle[1],'<button type="button" data-testid="stop-button">Stop</button>');
+await createBranch(8);
+await createBranch(9);
+const pinned = await live();
+assert(pinned.includes(idle[0]),'Attachment-only draft frame was released');
+assert(pinned.includes(idle[1]),'Generating branch frame was released');
+assert(pinned.length===5,`Expected active + 2 idle + 2 busy frames, got ${pinned.length}`);
 const results={passed:true,ids,frames:await frames(),routes:await page.evaluate(()=>qa.routes.length)};
 console.log(results);
 await page.screenshot({path:`${root}/draft/btw-frame-limit/after.png`});

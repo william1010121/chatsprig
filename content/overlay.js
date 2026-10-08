@@ -306,12 +306,19 @@
     if (focus && settings.focusPromptOnOpen) requestFocusPrompt();
   }
 
-  // Composer drafts live only in the frame. Treat an unreadable frame as holding one.
-  function hasDraft(record) {
+  // Unsent drafts, attachments and in-flight responses live only in the frame.
+  // Treat an unreadable frame as busy.
+  function frameBusy(record) {
     try {
-      const input = record.frame.contentDocument?.querySelector('#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown][contenteditable="true"]');
-      if (!input) return !record.frame.contentDocument;
-      return !!(input instanceof record.frame.contentWindow.HTMLTextAreaElement ? input.value : input.textContent).trim();
+      const doc = record.frame.contentDocument;
+      if (!doc) return true;
+      if (doc.querySelector('[data-testid="stop-button"], button[aria-label="Stop answering"], button[aria-label="停止產生"], button[aria-label="停止生成"], form[data-thread-find-composer] button:is([aria-label="Stop"], [aria-label="停止"])')) return true;
+      const input = doc.querySelector('#prompt-textarea, [data-testid="prompt-textarea"], [data-composer-markdown][contenteditable="true"]');
+      if (!input) return false;
+      if ((input instanceof record.frame.contentWindow.HTMLTextAreaElement ? input.value : input.textContent).trim()) return true;
+      const composer = input.closest('form') || input.parentElement;
+      return !!composer?.querySelector('img, [data-testid*="attachment"], [data-testid*="composer-files"], button[aria-label^="Remove file"]') ||
+        [...(composer?.querySelectorAll('input[type="file"]') || [])].some(file => file.files?.length);
     } catch {
       return true;
     }
@@ -319,10 +326,10 @@
 
   // Only ready branches with a persisted URL can be recreated from btw.js state.
   // Creating and local temporary branches would lose their conversation, and
-  // unsent drafts would be lost, so keep those frames.
+  // busy frames would lose unsent or streaming content, so keep those frames.
   function pruneBranchFrames() {
     const idle = [...frames].filter(([key, record]) =>
-      key.startsWith('btw:') && key !== frameKey() && record.ready && record.reopenable && !hasDraft(record));
+      key.startsWith('btw:') && key !== frameKey() && record.ready && record.reopenable && !frameBusy(record));
     idle.sort((a, b) => (b[1].used || 0) - (a[1].used || 0));
     for (const [key, record] of idle.slice(MAX_IDLE_BRANCH_FRAMES)) {
       window.clearTimeout(record.timer);
