@@ -1,7 +1,8 @@
-// Run with: ego-browser nodejs < tests/browser/btw-invalidation.mjs
+// Run with: python3 scripts/test_browser.py btw-invalidation
 // A caller can prefix globalThis.qaSpace / qaPage to reuse its active TaskSpace.
 const fs = await import('node:fs/promises');
-const root = '/Users/guoshengwei/Project/chatgpt-extension';
+const root = globalThis.qaRoot || process.env.CHATSPRIG_ROOT;
+if (!root) throw new Error('Run this test with scripts/test_browser.py to supply the checkout path.');
 const task = await taskSpace(globalThis.qaSpace || 'ChatSprig BTW context invalidation');
 console.log({ spaceId: task.spaceId });
 const page = task.page(globalThis.qaPage || 'p1');

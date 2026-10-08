@@ -150,10 +150,10 @@ Plain JavaScript. Manifest V3. No runtime framework or build step.
 node --test tests/*.test.mjs
 
 # Run browser regressions (requires ego-browser)
-ego-browser nodejs < tests/browser/btw.mjs
-ego-browser nodejs < tests/browser/btw-completion.mjs
-ego-browser nodejs < tests/browser/btw-invalidation.mjs
-ego-browser nodejs < tests/browser/compact-margins.mjs
+python3 scripts/test_browser.py btw
+python3 scripts/test_browser.py btw-completion
+python3 scripts/test_browser.py btw-invalidation
+python3 scripts/test_browser.py compact-margins
 
 # Regenerate icon sizes from the approved artwork (macOS)
 python3 scripts/make_icons.py
