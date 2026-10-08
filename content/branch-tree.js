@@ -2,7 +2,8 @@
 (function () {
   'use strict';
   const PREFIX = 'btwBranch:';
-  const PARENTS = 'branchTreeParents';
+  // One key per inferred link, so tabs never overwrite each other's read-modify-write.
+  const PARENT = 'branchParent:';
   const ID = /^[a-zA-Z0-9-]+$/;
   // btw.js still owns a branch that is opening; an older "opening" record was abandoned.
   const OPENING_GRACE = 10 * 60 * 1000;
@@ -23,8 +24,9 @@
       add(branch.session, { key, chat: conversationId(branch.url), opening });
     }
     const known = new Set([...index.values()].flat().map(record => record.chat));
-    for (const [chat, entry] of Object.entries(items?.[PARENTS] || {})) {
-      const parent = typeof entry === 'string' ? entry : entry?.parent;
+    for (const [key, entry] of Object.entries(items || {})) {
+      if (!key.startsWith(PARENT)) continue;
+      const chat = key.slice(PARENT.length), parent = entry?.parent;
       if (ID.test(chat) && ID.test(parent || '') && chat !== parent && !known.has(chat)) add(parent, { key: null, chat });
     }
     return index;
@@ -244,13 +246,12 @@
   async function infer(chats) {
     // Rows that load during a pass are inferred right after it.
     if (inferring || busy) { rerun = true; return; }
-    const known = items[PARENTS] || {};
     const btw = new Set([...index.values()].flat().filter(record => record.key).map(record => record.chat));
     const pending = [], waiting = new Set();
     for (const chat of chats) {
       if (!BRANCH_TITLE.test(chat.title) || btw.has(chat.id) || deleted.has(chat.id)) continue;
-      const base = baseTitle(chat.title), entry = known[chat.id];
-      const compared = new Set([...(entry?.candidates || []), ...(typeof entry === 'string' ? [entry] : []), ...(tried.get(chat.id) || [])]);
+      const base = baseTitle(chat.title), entry = items[PARENT + chat.id];
+      const compared = new Set([...(entry?.candidates || []), ...(tried.get(chat.id) || [])]);
       const loaded = chats.filter(other => other.id !== chat.id && baseTitle(other.title) === base).map(other => other.id);
       if (!loaded.length || loaded.every(id => compared.has(id))) continue;
       if (retry.get(chat.id)?.at > Date.now()) { waiting.add(chat.id); continue; }
@@ -284,12 +285,9 @@
           retry.set(id, { wait, at: Date.now() + wait });
         }
       }
-      if (Object.keys(found).length && extensionActive()) {
-        // Never write back a link that Clean removed meanwhile.
-        const merged = { ...((await chrome.storage.local.get(PARENTS))[PARENTS] || {}), ...found };
-        for (const [chat, entry] of Object.entries(merged)) if (deleted.has(chat) || deleted.has(entry?.parent || entry)) delete merged[chat];
-        await chrome.storage.local.set({ [PARENTS]: merged });
-      }
+      // A chat Clean deleted meanwhile is not linked again.
+      const links = Object.entries(found).filter(([chat]) => !deleted.has(chat)).map(([chat, entry]) => [PARENT + chat, entry]);
+      if (links.length && extensionActive()) await chrome.storage.local.set(Object.fromEntries(links));
     } catch (error) { storageError(error); }
     finally {
       inferring = false; finishPass(); armRetry();
@@ -400,10 +398,9 @@
     });
     try {
       if (!failed.size && extensionActive()) {
-        const parents = { ...((await chrome.storage.local.get(PARENTS))[PARENTS] || {}) };
-        for (const chat of deleted) delete parents[chat];
-        await chrome.storage.local.set({ [PARENTS]: parents });
-        if (stale.length) await chrome.storage.local.remove(stale);
+        // Everything below this source is gone, so none of its links are needed any more.
+        const links = chats.filter(chat => deleted.has(chat)).map(chat => PARENT + chat);
+        if (stale.length || links.length) await chrome.storage.local.remove([...stale, ...links]);
       }
     } catch (error) { storageError(error); }
     // A deleted branch may still be open in the floating window.
@@ -418,7 +415,7 @@
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (!extensionActive() || area !== 'local') return;
-    if (Object.keys(changes).some(key => key === PARENTS || key.startsWith(PREFIX))) void load();
+    if (Object.keys(changes).some(key => key.startsWith(PARENT) || key.startsWith(PREFIX))) void load();
   });
   void load();
 })();

@@ -79,7 +79,7 @@ const layout = await page.evaluate(() => {
   const indent = chat => Math.round(document.querySelector(`a[href="/c/${chat}"]`).getBoundingClientRect().left);
   return { recents, indents: [qa.parent, qa.child, qa.grandchild].map(indent),
     pinned: [qa.oldParent, qa.oldChild].map(top), oldDepth: row(qa.oldChild).getAttribute('data-chatsprig-depth'),
-    cached: qaStorage.branchTreeParents?.[qa.nativeBranch]?.parent === qa.native };
+    cached: qaStorage['branchParent:' + qa.nativeBranch]?.parent === qa.native };
 });
 console.log(layout);
 assert(JSON.stringify(layout.recents) === JSON.stringify(['Topic A', 'Side question', 'Follow-up question', 'Other one', 'skeleton', 'Native topic', '分支 · Native topic', 'Other two']),

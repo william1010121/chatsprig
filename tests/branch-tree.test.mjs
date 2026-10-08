@@ -82,7 +82,8 @@ test('inferred native branches join the tree but never duplicate /btw records', 
   const { branchIndex, descendants } = helpers();
   const index = branchIndex(Object.fromEntries([
     record('root', 'b1', 'child'),
-    ['branchTreeParents', { child: 'elsewhere', native: { parent: 'root', candidates: ['root'] }, nested: 'native', self: 'self', bad: 'x/y', empty: { parent: null } }]
+    ['branchParent:child', { parent: 'elsewhere' }], ['branchParent:native', { parent: 'root', candidates: ['root'] }],
+    ['branchParent:nested', { parent: 'native' }], ['branchParent:self', { parent: 'self' }], ['branchParent:bad', { parent: 'x/y' }], ['branchParent:empty', { parent: null }]
   ]));
   const result = descendants(index, 'root');
   assert.deepEqual([...result.chats].sort(), ['child', 'native', 'nested']);
