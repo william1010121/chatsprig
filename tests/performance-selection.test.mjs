@@ -14,6 +14,7 @@ class Element {
       const s = part.trim();
       if (s.startsWith('.')) return this.className.split(' ').includes(s.slice(1));
       if (s === 'button') return this.kind === 'button';
+      if (s === '[data-math-source]') return !!this.mathSource;
       if (s.includes('conversation-turn-') || s.includes('data-talvt-turn-state')) return !!this.turn;
       if (s.includes('data-message-author-role') || s.includes('data-chatgpt-search-unit-key')) return !!this.message;
       if (s.startsWith('button[')) return this.kind === 'button' && this.copy;
@@ -21,7 +22,7 @@ class Element {
     });
   }
   closest(selector) { return this.matches(selector) ? this : this.parentElement?.closest(selector) || null; }
-  contains(node) { return node === this || this.children.some(child => child.contains?.(node)); }
+  contains(node) { return node === this || this.children.some(child => child === node || child.contains?.(node)); }
   querySelectorAll(selector) {
     this.queries.push(selector);
     return this.children.flatMap(child => [
@@ -37,7 +38,7 @@ class Element {
 function harness(file, children = [], extra = {}) {
   const body = new Element('body');
   children.forEach(child => body.appendChild(child));
-  const listeners = {}, frames = [];
+  const listeners = {}, frames = [], pendingRecords = [];
   let observe;
   const window = { getSelection: () => null };
   window.top = window.self = window;
@@ -55,12 +56,14 @@ function harness(file, children = [], extra = {}) {
     requestAnimationFrame: callback => { frames.push(callback); },
     cgptLoadSettings: async () => ({}),
     chrome: { storage: { onChanged: { addListener() {} } } },
-    MutationObserver: class { constructor(callback) { observe = callback; } observe() {} },
+    MutationObserver: class { constructor(callback) { observe = callback; } observe() {}
+      takeRecords() { return pendingRecords.splice(0); } },
     ...extra
   };
   vm.runInNewContext(source(file), context);
   return { document, body, listeners, context, window, frames,
     mutate(records) { observe(records); },
+    queueMutations(records) { pendingRecords.push(...records); },
     flush() { while (frames.length) frames.shift()(); } };
 }
 function turn() {
@@ -257,6 +260,122 @@ test('Ask preserves conversion for KaTeX and multiple paragraphs with different 
     toolbar.children.at(-1).listeners.click({ preventDefault() {}, stopPropagation() {} });
     await Promise.resolve();
     assert.equal(sent, latex);
+  }
+});
+
+test('partial formula selection protects hidden sibling sources until deferred conversion', async () => {
+  for (const mathType of ['katex', 'data-math-source']) {
+    for (const mutation of ['unchanged', 'characterData', 'childList', 'same-task', 'unrelated']) {
+      const message = new Element('div', { message: true });
+      const math = message.appendChild(new Element('span', mathType === 'katex'
+        ? { className: 'katex' } : { mathSource: true }));
+      const mathml = math.appendChild(new Element('span', { className: 'katex-mathml' }));
+      const annotation = mathml.appendChild(new Element('annotation'));
+      let annotationText = annotation.appendChild({ nodeType: 3, data: 'x^2', isConnected: true });
+      const html = math.appendChild(new Element('span', { className: 'katex-html' }));
+      const selectedNode = html.appendChild({ nodeType: 3, data: 'x', isConnected: true });
+      const range = { startContainer: selectedNode, endContainer: selectedNode, startOffset: 0, endOffset: 1,
+        toString: () => 'x', cloneRange() { return { ...this }; },
+        intersectsNode: node => node === selectedNode };
+      const selection = { isCollapsed: false, rangeCount: 1, anchorNode: selectedNode, focusNode: selectedNode,
+        toString: () => 'x', getRangeAt: () => range, removeAllRanges() {} };
+      const { toolbar } = selectionToolbar();
+      let sent, conversions = 0;
+      const h = harness('ask-sidebar.js', [message, toolbar], {
+        cgptGetSelectedLatex(ranges) {
+          if (!ranges.length) return null;
+          conversions++;
+          return `\\(${annotationText.data}\\)`;
+        },
+        cgptAskInSidebar(text) { sent = text; }, Event, MouseEvent: Event, PointerEvent: Event
+      });
+      h.body.dispatchEvent = () => {};
+      h.document.dispatchEvent = () => {};
+      h.window.getSelection = () => selection;
+      h.listeners.selectionchange();
+      assert.equal(conversions, 0, 'source conversion stays deferred');
+      const documentScans = h.document.queries.length;
+      if (mutation === 'characterData' || mutation === 'same-task') {
+        annotationText.data = 'y^2';
+        const records = [{ type: 'characterData', target: annotationText }];
+        if (mutation === 'same-task') h.queueMutations(records);
+        else h.mutate(records);
+      } else if (mutation === 'childList') {
+        const removed = annotationText;
+        annotation.remove(removed);
+        annotationText = annotation.appendChild({ nodeType: 3, data: 'y^2', isConnected: true });
+        h.mutate([{ type: 'childList', target: annotation, addedNodes: [annotationText], removedNodes: [removed] }]);
+      } else if (mutation === 'unrelated') {
+        const otherMath = h.body.appendChild(new Element('span', { className: 'katex' }));
+        const otherAnnotation = otherMath.appendChild(new Element('annotation'));
+        const text = otherAnnotation.appendChild({ nodeType: 3, data: 'y^2', isConnected: true });
+        h.mutate([{ type: 'characterData', target: text },
+          { type: 'childList', target: otherAnnotation, addedNodes: [text], removedNodes: [] }]);
+      }
+      toolbar.children.at(-1).listeners.click({ preventDefault() {}, stopPropagation() {} });
+      await Promise.resolve();
+      const changed = !['unchanged', 'unrelated'].includes(mutation);
+      assert.equal(sent, changed ? 'x' : '\\(x^2\\)', `${mathType}: ${mutation}`);
+      assert.equal(conversions, changed ? 0 : 1, `${mathType}: ${mutation}`);
+      assert.equal(h.document.queries.length, documentScans, 'mutation guard never scans historical messages');
+      assert.equal(h.frames.length, 0, 'source-only or unrelated streamed text does not schedule toolbar scans');
+    }
+  }
+});
+
+test('fully selected intermediate formula sources reject mutations without invalidating unrelated message additions', async () => {
+  for (const mutation of ['characterData', 'childList', 'attributes', 'unrelated-childList']) {
+    const message = new Element('div', { message: true });
+    const start = message.appendChild(new Element('span'));
+    const math = message.appendChild(new Element('span', { className: 'katex', mathSource: true }));
+    const annotation = math.appendChild(new Element('annotation'));
+    let annotationText = annotation.appendChild({ nodeType: 3, data: 'x^2', isConnected: true });
+    const end = message.appendChild(new Element('span'));
+    // Keep raw text stable to verify mutation invalidation independently of the
+    // existing text/boundary guard (data-math-source is not rendered text).
+    const range = { startContainer: start, endContainer: end, startOffset: 0, endOffset: 1,
+      toString: () => 'before x after', cloneRange() { return { ...this }; },
+      intersectsNode: node => node === math || math.contains(node) };
+    const selection = { isCollapsed: false, rangeCount: 1, anchorNode: { parentElement: start },
+      focusNode: { parentElement: end }, toString: () => 'before x after', getRangeAt: () => range,
+      removeAllRanges() {} };
+    const { toolbar } = selectionToolbar();
+    let sent, conversions = 0;
+    const h = harness('ask-sidebar.js', [message, toolbar], {
+      cgptGetSelectedLatex(ranges) {
+        if (!ranges.length) return null;
+        conversions++;
+        return `before \\(${annotationText.data}\\) after`;
+      },
+      cgptAskInSidebar(text) { sent = text; }, Event, MouseEvent: Event, PointerEvent: Event
+    });
+    h.body.dispatchEvent = () => {};
+    h.document.dispatchEvent = () => {};
+    h.window.getSelection = () => selection;
+    h.listeners.selectionchange();
+    const scans = h.document.queries.length;
+    if (mutation === 'characterData') {
+      annotationText.data = 'y^2';
+      h.mutate([{ type: 'characterData', target: annotationText }]);
+    } else if (mutation === 'childList') {
+      const removed = annotationText;
+      annotation.remove(removed);
+      annotationText = annotation.appendChild({ nodeType: 3, data: 'y^2', isConnected: true });
+      h.mutate([{ type: 'childList', target: annotation, addedNodes: [annotationText], removedNodes: [removed] }]);
+    } else if (mutation === 'attributes') {
+      annotationText.data = 'y^2';
+      h.mutate([{ type: 'attributes', attributeName: 'data-math-source', target: math }]);
+    } else {
+      const unrelated = message.appendChild(new Element('div'));
+      unrelated.appendChild(new Element('span', { className: 'katex' }));
+      h.mutate([{ type: 'childList', target: message, addedNodes: [unrelated], removedNodes: [] }]);
+    }
+    toolbar.children.at(-1).listeners.click({ preventDefault() {}, stopPropagation() {} });
+    await Promise.resolve();
+    const unchanged = mutation === 'unrelated-childList';
+    assert.equal(sent, unchanged ? 'before \\(x^2\\) after' : 'before x after', mutation);
+    assert.equal(conversions, unchanged ? 1 : 0, mutation);
+    assert.equal(h.document.queries.length, scans, 'no full-page mutation scans');
   }
 });
 

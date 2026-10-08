@@ -8,9 +8,17 @@
   let selectedText = '';
   let selectedRanges;
   let rangeBoundaries;
+  let protectedMathRoots = [];
   let selectionSourceChanged = false;
   let dismissingSelection = false;
   let nativeToolbar = null;
+
+  function endpointMath(node) {
+    const element = node?.nodeType === 1 ? node : node?.parentElement;
+    // Match copy-latex's endpoint expansion: its source can live in a hidden
+    // sibling annotation outside the original, partially selected Range.
+    return element?.closest('[data-math-source]') || element?.closest('.katex') || null;
+  }
 
   function captureSelection() {
     if (dismissingSelection) return;
@@ -33,6 +41,8 @@
       (_, index) => selection.getRangeAt(index).cloneRange()) : undefined;
     rangeBoundaries = selectedRanges?.map(range => ({ start: range.startContainer, end: range.endContainer,
       startOffset: range.startOffset, endOffset: range.endOffset, text: range.toString() }));
+    protectedMathRoots = [...new Set(selectedRanges?.flatMap(range =>
+      [endpointMath(range.startContainer), endpointMath(range.endContainer)]).filter(Boolean) || [])];
   }
 
   function mount(root = document) {
@@ -67,6 +77,9 @@
       event.stopPropagation();
       if (dismissingSelection) return;
       if (!selectedText.trim()) return;
+      // A source edit and programmatic activation can happen in the same task,
+      // before MutationObserver delivers the change.
+      onMutations(observer.takeRecords?.() || []);
       // DOM Ranges are live: a removed/replaced message can retarget them to a
       // different node. In that case retain the captured text instead.
       const stableRanges = !selectionSourceChanged && selectedRanges?.every((range, index) => {
@@ -85,6 +98,7 @@
       selectedText = '';
       selectedRanges = undefined;
       rangeBoundaries = undefined;
+      protectedMathRoots = [];
       selectionSourceChanged = false;
       // Finish this toolbar interaction before dismissing it. ChatGPT can keep
       // its own highlight/toolbar state after the DOM selection is cleared.
@@ -128,9 +142,17 @@
       }
     });
   }
-  const observer = new MutationObserver(records => {
+  function onMutations(records) {
     if (!records) { scheduleMount(document); return; }
     for (const record of records) {
+      if (!selectionSourceChanged && protectedMathRoots.some(root => root.contains(record.target))) selectionSourceChanged = true;
+      if (!selectionSourceChanged && selectedRanges?.length && record.type === 'childList') {
+        // Fully selected formulas between the endpoints also have protected
+        // sources. Avoid treating changes to a broad message ancestor as edits
+        // to the selection; check only the math roots involved in the change.
+        const mathRoots = [endpointMath(record.target), ...Array.from(record.addedNodes, endpointMath)].filter(Boolean);
+        if (mathRoots.some(root => selectedRanges.some(range => range.intersectsNode(root)))) selectionSourceChanged = true;
+      }
       if (record.type === 'attributes' || record.type === 'characterData') {
         // Formula source can change without changing its rendered selection
         // text. Invalidate only mutations intersecting the saved selection.
@@ -146,7 +168,8 @@
         if (node.nodeType === 1) scheduleMount(node);
       }
     }
-  });
+  }
+  const observer = new MutationObserver(onMutations);
   observer.observe(document.body, { childList: true, subtree: true, characterData: true,
     attributes: true, attributeFilter: ['data-math-source'] });
   mount();
