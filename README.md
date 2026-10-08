@@ -7,7 +7,7 @@
     <a href="https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe"><img src="https://img.shields.io/badge/Chrome_Web_Store-Install-174D3B?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Install ChatSprig from the Chrome Web Store"></a>
     <a href="https://github.com/william1010121/chatsprig/stargazers"><img src="https://img.shields.io/badge/%E2%98%85-Star%20on%20GitHub-174D3B?style=for-the-badge" alt="Star on GitHub"></a>
     <img src="https://img.shields.io/badge/Chrome-Manifest%20V3-FAF7EF?style=for-the-badge&logo=googlechrome&logoColor=174D3B" alt="Chrome Manifest V3">
-    <img src="https://img.shields.io/badge/version-2.5.2-174D3B?style=for-the-badge" alt="Version 2.5.2">
+    <img src="https://img.shields.io/badge/version-2.6.0-174D3B?style=for-the-badge" alt="Version 2.6.0">
   </p>
   <p><a href="#meet-chatsprig">Features</a> · <a href="#get-started">Get started</a> · <a href="#keyboard-shortcuts">Shortcuts</a> · <a href="#privacy--permissions">Privacy</a></p>
 </div>
@@ -34,7 +34,7 @@ ChatSprig opens the ChatGPT and Gemini websites directly. On either service’s 
 
 ## Get started
 
-**Chrome Web Store:** [install ChatSprig](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The local extension is version 2.5.2, with ChatGPT `/btw` branches, Gemini support, Ask in sidebar, Compact view controls, custom prompts, and skill completion.
+**Chrome Web Store:** [install ChatSprig](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The local extension is version 2.6.0, with ChatGPT `/btw` branches, a nested branch sidebar with Clean, Gemini support, Ask in sidebar, Compact view controls, custom prompts, and skill completion.
 
 ### Demo
 
@@ -120,8 +120,8 @@ The main ChatGPT website keeps its own sidebar. The sidebar preference applies o
 
 | Access | Purpose |
 | --- | --- |
-| Web-page content scripts | Display the launcher, handle shortcuts, and host the overlay. On ChatGPT, also focus the prompt, hide the embedded sidebar, and convert selected math when copying. |
-| Storage | Sync preferences and save custom skill templates and BTW branch metadata locally. |
+| Web-page content scripts | Display the launcher, handle shortcuts, and host the overlay. On ChatGPT, also focus the prompt, hide the embedded sidebar, nest branch chats in the history sidebar, and convert selected math when copying. |
+| Storage | Sync preferences and save custom skill templates, BTW branch metadata and branch-to-source links locally. |
 | ChatGPT cookies | Support cross-site sign-in when cookie rewriting is enabled. |
 | Declarative network rules with host access | Remove frame-blocking response headers from ChatGPT subframes and X-Frame-Options from Gemini subframes, limited to granted host access. |
 
