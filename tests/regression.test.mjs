@@ -109,7 +109,8 @@ test('early overlay request waits for settings and creates a sandboxed in-page f
   assert.equal(reply.open, true);
   assert.equal(frames.length, 1);
   assert.equal(frames[0].src, DEFAULT_SETTINGS.targetUrl);
-  assert.equal(frames[0].sandbox, 'allow-scripts allow-same-origin allow-forms allow-downloads');
+  // Response links (target=_blank) open as normal tabs; the frame still cannot navigate the host page.
+  assert.equal(frames[0].sandbox, 'allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox');
   assert.ok(!shadow.innerHTML.includes('newtab'));
   onMessage.listener({ type: 'refreshOverlay' }, {}, () => {});
   assert.equal(frames.length, 2);

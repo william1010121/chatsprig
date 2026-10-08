@@ -433,7 +433,8 @@
     const frame = document.createElement('iframe');
     const key = frameKey();
     frame.name = activeBranch ? `cgpt_helper_btw_${activeBranch.id}_${activeBranch.session}` : key === 'gemini' ? 'gemini_helper_overlay_frame' : FRAME_NAME;
-    frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-downloads');
+    // Response links use target=_blank. Popups escape the sandbox so they open as normal tabs.
+    frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox');
     frame.allow = 'clipboard-read; clipboard-write; microphone';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
     frame.src = activeBranch ? activeBranch.url : key === 'gemini' ? 'https://gemini.google.com/app' : settings.targetUrl;
