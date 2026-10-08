@@ -67,11 +67,22 @@ test('pickParent chooses the older chat sharing the most copied message nodes', 
   assert.equal(pickParent(chat('unrelated', 9, ['z']), [parent]), null);
 });
 
+test('pickParent skips an older sibling that shares only copied messages', () => {
+  const { pickParent } = helpers();
+  const chat = (id, created, nodes, own) => ({ id, created, nodes: new Set(nodes), own: new Set(own) });
+  const sibling = chat('sibling', 2, ['a', 'b', 's1'], ['s1']);
+  const child = chat('child', 3, ['a', 'b', 'x'], ['x']);
+  // Without the source loaded, the sibling (overlap a, b) must not be chosen.
+  assert.equal(pickParent(child, [sibling]), null);
+  assert.equal(pickParent(child, [sibling, chat('source', 1, ['a', 'b', 'c'], ['a', 'b', 'c'])]), 'source');
+  assert.equal(pickParent(chat('nested', 4, ['a', 'b', 's1', 'n'], ['n']), [sibling]), 'sibling');
+});
+
 test('inferred native branches join the tree but never duplicate /btw records', () => {
   const { branchIndex, descendants } = helpers();
   const index = branchIndex(Object.fromEntries([
     record('root', 'b1', 'child'),
-    ['branchTreeParents', { child: 'elsewhere', native: 'root', nested: 'native', self: 'self', bad: 'x/y' }]
+    ['branchTreeParents', { child: 'elsewhere', native: { parent: 'root', candidates: ['root'] }, nested: 'native', self: 'self', bad: 'x/y', empty: { parent: null } }]
   ]));
   const result = descendants(index, 'root');
   assert.deepEqual([...result.chats].sort(), ['child', 'native', 'nested']);

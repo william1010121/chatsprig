@@ -23,7 +23,8 @@
       add(branch.session, { key, chat: conversationId(branch.url), opening });
     }
     const known = new Set([...index.values()].flat().map(record => record.chat));
-    for (const [chat, parent] of Object.entries(items?.[PARENTS] || {})) {
+    for (const [chat, entry] of Object.entries(items?.[PARENTS] || {})) {
+      const parent = typeof entry === 'string' ? entry : entry?.parent;
       if (ID.test(chat) && ID.test(parent || '') && chat !== parent && !known.has(chat)) add(parent, { key: null, chat });
     }
     return index;
@@ -41,12 +42,15 @@
     visit(root);
     return { keys, chats };
   }
-  // A native branch copies its source's message nodes, IDs included. The source is the
-  // older candidate sharing the most nodes; a tie goes to the oldest (the original).
+  // A native branch copies its source's message nodes, IDs and timestamps included. A chat's
+  // own nodes are those created after the chat itself. The source is an older candidate whose
+  // own nodes the child shares (an older sibling shares only copied ones), then the one sharing
+  // the most nodes; a tie goes to the oldest.
   function pickParent(child, candidates) {
     let best = null, bestShared = 0;
     for (const candidate of candidates) {
       if (!(candidate.created < child.created)) continue;
+      if (![...(candidate.own || candidate.nodes)].some(node => child.nodes.has(node))) continue;
       let shared = 0;
       for (const node of candidate.nodes) if (child.nodes.has(node)) shared++;
       if (shared > bestShared || (shared && shared === bestShared && candidate.created < best.created)) { best = candidate; bestShared = shared; }
@@ -219,8 +223,9 @@
     }
     throw new Error('Not signed in');
   }
-  // Each native branch is looked up once; the answer is kept in local storage.
-  // tried: settled lookups by candidate set. retry: failed lookups wait with exponential backoff.
+  // A native branch is compared once per candidate set; the answer and the candidates it
+  // considered are kept in local storage. A newly loaded candidate triggers a re-comparison.
+  // tried: candidates compared without a match. retry: failed lookups wait with exponential backoff.
   const nodes = new Map(), tried = new Map(), retry = new Map();
   let retryTimer = 0;
   let inferring = false;
@@ -228,8 +233,10 @@
     if (!nodes.has(id)) {
       const response = await api(`/backend-api/conversation/${id}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      nodes.set(id, { id, nodes: new Set(Object.keys(data.mapping || {})), created: Number(data.create_time) || 0 });
+      const data = await response.json(), created = Number(data.create_time) || 0;
+      const mapping = Object.entries(data.mapping || {});
+      nodes.set(id, { id, created, nodes: new Set(mapping.map(([node]) => node)),
+        own: new Set(mapping.filter(([, item]) => Number(item?.message?.create_time) >= created).map(([node]) => node)) });
     }
     return nodes.get(id);
   }
@@ -239,31 +246,34 @@
     const btw = new Set([...index.values()].flat().filter(record => record.key).map(record => record.chat));
     const pending = [];
     for (const chat of chats) {
-      if (!BRANCH_TITLE.test(chat.title) || chat.id in known || btw.has(chat.id) || deleted.has(chat.id)) continue;
-      const base = baseTitle(chat.title);
-      const candidates = [...new Set(chats.filter(other => other.id !== chat.id && baseTitle(other.title) === base).map(other => other.id))];
-      // Retry only when a new candidate scrolls into the sidebar.
-      const signature = candidates.sort().join(',');
-      if (!candidates.length || tried.get(chat.id) === signature || retry.get(chat.id)?.at > Date.now()) continue;
-      pending.push({ id: chat.id, candidates, signature });
+      if (!BRANCH_TITLE.test(chat.title) || btw.has(chat.id) || deleted.has(chat.id)) continue;
+      const base = baseTitle(chat.title), entry = known[chat.id];
+      const compared = new Set([...(entry?.candidates || []), ...(typeof entry === 'string' ? [entry] : []), ...(tried.get(chat.id) || [])]);
+      const loaded = chats.filter(other => other.id !== chat.id && baseTitle(other.title) === base).map(other => other.id);
+      if (!loaded.length || loaded.every(id => compared.has(id)) || retry.get(chat.id)?.at > Date.now()) continue;
+      // Earlier candidates may have scrolled out of the sidebar; keep comparing them by ID.
+      pending.push({ id: chat.id, candidates: [...new Set([...compared, ...loaded])].filter(id => !deleted.has(id)) });
     }
     if (!pending.length) return;
     inferring = true;
     const found = {};
     try {
-      for (const { id, candidates, signature } of pending) {
+      for (const { id, candidates } of pending) {
         if (!extensionActive()) return;
         try {
           const child = await conversation(id);
-          const parent = pickParent(child, await Promise.all(candidates.map(conversation)));
-          tried.set(id, signature); retry.delete(id);
-          if (parent) found[id] = parent;
+          // A candidate deleted elsewhere (404) cannot be the source; other errors retry.
+          const compared = (await Promise.all(candidates.map(candidate => conversation(candidate).catch(error => {
+            if (/HTTP 404/.test(error.message)) return null;
+            throw error;
+          })))).filter(Boolean);
+          const parent = pickParent(child, compared);
+          tried.set(id, candidates); retry.delete(id);
+          if (parent) found[id] = { parent, candidates };
         } catch {
           // Offline, 429 or 5xx: try again later instead of treating the comparison as settled.
           const wait = Math.min((retry.get(id)?.wait || 15000) * 2, 10 * 60 * 1000);
           retry.set(id, { wait, at: Date.now() + wait });
-          window.clearTimeout(retryTimer);
-          retryTimer = window.setTimeout(schedule, Math.min(...[...retry.values()].map(item => item.at)) - Date.now());
         }
       }
       if (Object.keys(found).length && extensionActive()) {
@@ -271,7 +281,12 @@
         await chrome.storage.local.set({ [PARENTS]: { ...current, ...found } });
       }
     } catch (error) { storageError(error); }
-    finally { inferring = false; }
+    finally {
+      inferring = false;
+      // Wake for the earliest outstanding retry, whichever lookups succeeded meanwhile.
+      window.clearTimeout(retryTimer);
+      if (retry.size && !invalidated) retryTimer = window.setTimeout(schedule, Math.max(0, Math.min(...[...retry.values()].map(item => item.at)) - Date.now()));
+    }
   }
 
   async function load() {

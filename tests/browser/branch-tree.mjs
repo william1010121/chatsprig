@@ -29,7 +29,9 @@ const shim = `
   } } };
   window.confirm = message => { qa.confirmed = message; return true; };
   // A native branch shares its source's message node IDs.
-  const conversations = { [ids.native]: { create_time: 1, mapping: { r: {}, m1: {}, m2: {} } }, [ids.nativeBranch]: { create_time: 2, mapping: { r: {}, m1: {}, m2: {}, x: {} } } };
+  const message = time => ({ message: { create_time: time } });
+  const conversations = { [ids.native]: { create_time: 1, mapping: { r: {}, m1: message(1.1), m2: message(1.2) } },
+    [ids.nativeBranch]: { create_time: 2, mapping: { r: {}, m1: message(1.1), m2: message(1.2), x: message(2.1) } } };
   const reply = (status, body) => ({ ok: status < 400, status, json: async () => body });
   window.fetch = async (url, init = {}) => {
     qa.fetches.push({ url, method: init.method || 'GET', auth: init.headers?.Authorization, body: init.body });
@@ -67,7 +69,7 @@ const layout = await page.evaluate(() => {
   const indent = chat => Math.round(document.querySelector(`a[href="/c/${chat}"]`).getBoundingClientRect().left);
   return { recents, indents: [qa.parent, qa.child, qa.grandchild].map(indent),
     pinned: [qa.oldParent, qa.oldChild].map(top), oldDepth: row(qa.oldChild).getAttribute('data-chatsprig-depth'),
-    cached: qaStorage.branchTreeParents?.[qa.nativeBranch] === qa.native };
+    cached: qaStorage.branchTreeParents?.[qa.nativeBranch]?.parent === qa.native };
 });
 console.log(layout);
 assert(JSON.stringify(layout.recents) === JSON.stringify(['Topic A', 'Side question', 'Follow-up question', 'Other one', 'skeleton', 'Native topic', '分支 · Native topic', 'Other two']),
