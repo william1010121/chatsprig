@@ -9,6 +9,8 @@
   const MESSAGE_SOURCE = 'cgpt-helper';
   const SESSION_KEY = 'cgptHelperOverlayOpen';
   const FOCUS_DELAYS = [0, 80, 180, 350, 700, 1200, 2000, 3500];
+  // Hidden branch iframes are full ChatGPT pages; keep only a few reopenable ones.
+  const MAX_IDLE_BRANCH_FRAMES = 2;
 
   let host = null;
   let shadow = null;
@@ -19,6 +21,7 @@
   let activeBranch = null;
   const frameKey = () => activeBranch ? `btw:${activeBranch.id}` : provider;
   let focusGeneration = 0;
+  let frameUse = 0;
   let pendingFocus = null;
 
   function readSessionProvider() {
@@ -295,9 +298,25 @@
     host.setAttribute('data-open', 'true');
     writeSessionOpen(true);
     if (reload || !frames.has(frameKey())) createOrReplaceIframe();
-    iframe = frames.get(frameKey()).frame;
+    const record = frames.get(frameKey());
+    record.used = ++frameUse;
+    iframe = record.frame;
+    pruneBranchFrames();
     renderProvider();
     if (focus && settings.focusPromptOnOpen) requestFocusPrompt();
+  }
+
+  // Only ready branches with a persisted URL can be recreated from btw.js state.
+  // Creating and local temporary branches would lose their conversation, so keep them.
+  function pruneBranchFrames() {
+    const idle = [...frames].filter(([key, record]) =>
+      key.startsWith('btw:') && key !== frameKey() && record.ready && record.reopenable);
+    idle.sort((a, b) => (b[1].used || 0) - (a[1].used || 0));
+    for (const [key, record] of idle.slice(MAX_IDLE_BRANCH_FRAMES)) {
+      window.clearTimeout(record.timer);
+      record.frame.remove();
+      frames.delete(key);
+    }
   }
 
   function hide() {
@@ -359,7 +378,9 @@
       if (!record || event.source !== record.frame.contentWindow || event.origin !== 'https://chatgpt.com' ||
           (event.data.url !== null && !/^https:\/\/chatgpt\.com\/c\/[a-zA-Z0-9-]+(?:\?temporary-chat=true)?$/.test(event.data.url || ''))) return;
       record.ready = true;
+      record.reopenable = !!event.data.url;
       if (frameKey() === `btw:${id}`) renderProvider();
+      else pruneBranchFrames();
       if (event.data.url) globalThis.cgptBtwBranchReady?.(id, event.data.url);
       return;
     }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source = fs.readFileSync(new URL('../content/system-prompt.js', import.meta.url), 'utf8');
-async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡潔', history = false, path = '/', draft = '第一個問題', gemini = false, disabled = false, count = history ? 1 : 0, interval = 0, mode = 'chat', complete = !path.includes('/c/'), branch = 'original', delayedSettings = false } = {}) {
+async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡潔', history = false, path = '/', draft = '第一個問題', gemini = false, disabled = false, count = history ? 1 : 0, interval = 0, mode = 'chat', complete = !path.includes('/c/'), branch = 'original', delayedSettings = false, insertFails = false } = {}) {
   const listeners = {};
   const timers = [];
   const sent = [];
@@ -16,7 +16,7 @@ async function harness({ enabled = true, prompt = '使用繁體中文\n保持簡
     constructor() { this._value = draft; this.isConnected = true; }
     get value() { return this._value; }
     set value(value) { this._value = value; }
-    focus() {}
+    focus() { if (insertFails) throw new Error('Editor rejected insertion'); }
     dispatchEvent() {}
     contains(node) { return node === this; }
   }
@@ -67,6 +67,14 @@ test('first click, Enter and form submit prepend multiline instructions, then se
     h.input.value = '第二個問題';
     h.button.click();
     assert.equal(h.sent[1], '第二個問題');
+  }
+});
+test('a failed instruction insertion still sends the untouched draft once', async () => {
+  for (const type of ['click', 'keydown']) {
+    const h = await harness({ insertFails: true });
+    h.dispatch(type, { target: type === 'click' ? h.button : h.input });
+    h.flush();
+    assert.deepEqual(h.sent, ['第一個問題']);
   }
 });
 test('disabled, empty instructions and already counted conversations remain unchanged', async () => {
