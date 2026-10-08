@@ -1,6 +1,6 @@
 # ChatSprig submission notes
 
-- Version: 2.5.1 (local release; not submitted)
+- Version: 2.5.2 (local release; not submitted)
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
@@ -9,6 +9,11 @@
 ## Single purpose
 
 Provide an in-page workspace for temporary ChatGPT and Gemini conversations, with keyboard access, explicit selection-to-sidebar actions, focused layout, and LaTeX copying for mathematical responses.
+
+## Changes in 2.5.2
+
+- Handle synchronous and asynchronous BTW storage errors after extension reloads. Invalidated scripts detach their UI, stop observers and input interception, and preserve drafts until the page is reloaded.
+- Add browser regressions for context invalidation during navigation, storage reads/writes, and branch delivery.
 
 ## Changes in 2.5.1
 
@@ -50,7 +55,7 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: 2.5.1 is prepared locally. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
+- Status: 2.5.2 is prepared locally. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.

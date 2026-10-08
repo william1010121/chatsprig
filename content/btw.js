@@ -10,9 +10,31 @@
   let host, shadow, mountedForm, currentSession = null;
   let branches = [], expanded = false, pending = false, notice = '', loadRevision = 0;
   let hoverOpen = false, hoverTimer = null;
+  let invalidated = false, mountObserver, themeObserver;
+  const lifetime = new AbortController();
+  function stop() {
+    if (invalidated) return;
+    invalidated = true;
+    ++loadRevision;
+    lifetime.abort();
+    mountObserver?.disconnect(); themeObserver?.disconnect();
+    window.clearTimeout(hoverTimer);
+    removeCommand(); host?.remove();
+  }
+  function extensionActive() {
+    if (!invalidated) {
+      try { if (chrome.runtime?.id) return true; } catch {}
+    }
+    stop();
+    return false;
+  }
+  function storageError(error) {
+    if (/Extension context invalidated/i.test(error?.message || '')) stop();
+    else extensionActive();
+  }
   const session = () => /\/c\/([a-zA-Z0-9-]+)(?:\/|$)/.exec(location.pathname)?.[1] || null;
   const visible = el => !el.closest('[hidden], [aria-hidden="true"]') && el.getClientRects().length > 0;
-  const getInput = () => [...document.querySelectorAll(INPUT)].filter(visible).at(-1);
+  const getInput = () => extensionActive() ? [...document.querySelectorAll(INPUT)].filter(visible).at(-1) : null;
   function readText(input) {
     if (input instanceof HTMLTextAreaElement) return input.value;
     const read = node => node.nodeType === Node.TEXT_NODE ? node.nodeValue : node.nodeName === 'BR' ?
@@ -33,7 +55,21 @@
     }
   }
   function storageKey(branch) { return `${PREFIX}${branch.session}:${branch.id}`; }
-  async function save(branch) { await chrome.storage.local.set({ [storageKey(branch)]: branch }); }
+  async function save(branch) {
+    if (!extensionActive()) throw new Error('Extension context invalidated.');
+    try { await chrome.storage.local.set({ [storageKey(branch)]: branch }); }
+    catch (error) { storageError(error); throw error; }
+  }
+  async function loadBranches(next, revision) {
+    try {
+      const items = await chrome.storage.local.get(null);
+      if (!extensionActive() || revision !== loadRevision) return;
+      branches = Object.entries(items).filter(([key, branch]) => key.startsWith(`${PREFIX}${next}:`) && validBranch(branch, next))
+        .map(([, branch]) => branch).sort((a, b) => a.createdAt - b.createdAt);
+      for (const branch of branches) knownBranches.set(branch.id, branch);
+      render();
+    } catch (error) { storageError(error); }
+  }
   function updateListVisibility() {
     const open = expanded || hoverOpen;
     shadow.querySelector('.toggle').setAttribute('aria-expanded', String(open));
@@ -48,7 +84,7 @@
     expanded = false; hoverOpen = false;
   }
   function render() {
-    if (!shadow) return;
+    if (!shadow || invalidated) return;
     const toggle = shadow.querySelector('.toggle');
     toggle.textContent = `Branches · ${branches.length}`;
     const status = shadow.querySelector('[role="status"]');
@@ -111,13 +147,15 @@
       }
       host.addEventListener('pointerleave', endHover);
       shadow.addEventListener('click', async event => {
+        if (!extensionActive()) return;
         const button = event.target.closest('button');
         if (!button) return;
         if (button.classList.contains('toggle')) { expanded = !expanded; hoverOpen = false; render(); return; }
         const branch = branches.find(item => item.id === button.dataset.id);
         if (!branch || pending) return;
         closeList(); render();
-        await globalThis.cgptOpenBtw?.(branch);
+        try { await globalThis.cgptOpenBtw?.(branch); }
+        catch (error) { storageError(error); }
       });
     }
     host.style.colorScheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -126,13 +164,9 @@
     if (next !== currentSession) {
       currentSession = next; branches = []; closeList(); notice = '';
       const revision = ++loadRevision;
-      if (next) chrome.storage.local.get(null).then(items => {
-        if (revision !== loadRevision) return;
-        branches = Object.entries(items).filter(([key, branch]) => key.startsWith(`${PREFIX}${next}:`) && validBranch(branch, next))
-          .map(([, branch]) => branch).sort((a, b) => a.createdAt - b.createdAt);
-        for (const branch of branches) knownBranches.set(branch.id, branch);
-        render();
-      }).catch(() => {});
+      // Chrome can throw synchronously after an extension reload, before a
+      // Promise exists. The async loader handles both throws and rejections.
+      if (next) void loadBranches(next, revision);
       render();
     }
   }
@@ -168,7 +202,9 @@
     knownBranches.set(branch.id, branch); branches.push(branch); render();
     try {
       await save(branch);
+      if (!extensionActive()) return;
       const result = await globalThis.cgptOpenBtw(branch, question);
+      if (!extensionActive()) return;
       if (result?.filled) {
         branch.state = 'ready';
         if (session() === source && input.isConnected && readText(input) === draft) clearDraft(input);
@@ -328,7 +364,7 @@
     if (event.key === 'Enter') { selectedCommand?.click(); return; }
     selectCommand(buttons[(current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]);
     selectedCommand?.scrollIntoView({ block: 'nearest' });
-  }, true);
+  }, { capture: true, signal: lifetime.signal });
   function intercept(event) {
     if (event.defaultPrevented) return;
     if (event.type === 'keydown' && (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || event.keyCode === 229)) return;
@@ -345,25 +381,27 @@
     void createBranch(input, draft, question);
   }
   // Run before system-prompt submission interception so /btw is never prefixed or sent to the source.
-  for (const name of ['keydown', 'click', 'submit']) window.addEventListener(name, intercept, true);
+  for (const name of ['keydown', 'click', 'submit']) window.addEventListener(name, intercept, { capture: true, signal: lifetime.signal });
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape' && (expanded || hoverOpen)) { closeList(); render(); shadow.querySelector('.toggle').focus(); }
-  });
+  }, { signal: lifetime.signal });
   document.addEventListener('pointerdown', event => {
+    if (!extensionActive()) return;
     if ((expanded || hoverOpen) && !event.composedPath().includes(host)) { closeList(); render(); }
     const input = getInput();
     if (commandButton && !input?.contains(event.target) && !commandList?.contains(event.target)) {
       dismissedQuery = input && readText(input); removeCommand();
     }
-  });
+  }, { signal: lifetime.signal });
   globalThis.cgptBtwBranchReady = (id, url) => {
+    if (!extensionActive()) return;
     const branch = knownBranches.get(id);
     if (!branch) return;
     branch.url = url; branch.state = 'ready';
     void save(branch).catch(() => {}); render();
   };
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !currentSession) return;
+    if (!extensionActive() || area !== 'local' || !currentSession) return;
     for (const [key, change] of Object.entries(changes)) {
       if (!key.startsWith(`${PREFIX}${currentSession}:`)) continue;
       const index = branches.findIndex(branch => storageKey(branch) === key);
@@ -376,21 +414,22 @@
     render();
   });
   let scheduled = false;
-  new MutationObserver(() => {
+  mountObserver = new MutationObserver(() => {
     if (scheduled) return;
     scheduled = true;
     requestAnimationFrame(() => { scheduled = false; mount(); mountCommand(); });
-  }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-current'] });
+  });
+  mountObserver.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-current'] });
   document.addEventListener('input', event => {
     const input = getInput();
     if (!input?.contains(event.target)) return;
     // Native Escape can emit an input event without changing the text.
     if (readText(input) !== dismissedQuery) dismissedQuery = null;
     mountCommand();
-  }, true);
+  }, { capture: true, signal: lifetime.signal });
   document.addEventListener('focusin', event => {
     if (getInput()?.contains(event.target)) mountCommand();
-  }, true);
+  }, { capture: true, signal: lifetime.signal });
   document.addEventListener('focusout', event => {
     const input = getInput();
     if (input?.contains(event.target) && !commandList?.contains(event.relatedTarget)) {
@@ -399,19 +438,20 @@
         if (!current?.contains(document.activeElement) && !commandList?.contains(document.activeElement)) removeCommand();
       });
     }
-  }, true);
+  }, { capture: true, signal: lifetime.signal });
   // ChatGPT's global Escape handler can consume keydown and blur the editor.
   window.addEventListener('keyup', event => {
     const input = getInput();
     if (event.key === 'Escape' && slashQuery(input)) {
       dismissedQuery = readText(input); removeCommand();
     }
-  }, true);
-  window.addEventListener('resize', () => positionFallback(getInput()));
-  document.addEventListener('scroll', () => positionFallback(getInput()), true);
-  new MutationObserver(() => {
+  }, { capture: true, signal: lifetime.signal });
+  window.addEventListener('resize', () => positionFallback(getInput()), { signal: lifetime.signal });
+  document.addEventListener('scroll', () => positionFallback(getInput()), { capture: true, signal: lifetime.signal });
+  themeObserver = new MutationObserver(() => {
     if (host) host.style.colorScheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-  }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-  window.addEventListener('popstate', mount);
+  });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('popstate', mount, { signal: lifetime.signal });
   mount(); render();
 })();

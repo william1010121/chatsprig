@@ -7,7 +7,7 @@
     <a href="https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe"><img src="https://img.shields.io/badge/Chrome_Web_Store-Install-174D3B?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Install ChatSprig from the Chrome Web Store"></a>
     <a href="https://github.com/william1010121/chatsprig/stargazers"><img src="https://img.shields.io/badge/%E2%98%85-Star%20on%20GitHub-174D3B?style=for-the-badge" alt="Star on GitHub"></a>
     <img src="https://img.shields.io/badge/Chrome-Manifest%20V3-FAF7EF?style=for-the-badge&logo=googlechrome&logoColor=174D3B" alt="Chrome Manifest V3">
-    <img src="https://img.shields.io/badge/version-2.5.1-174D3B?style=for-the-badge" alt="Version 2.5.1">
+    <img src="https://img.shields.io/badge/version-2.5.2-174D3B?style=for-the-badge" alt="Version 2.5.2">
   </p>
   <p><a href="#meet-chatsprig">Features</a> · <a href="#get-started">Get started</a> · <a href="#keyboard-shortcuts">Shortcuts</a> · <a href="#privacy--permissions">Privacy</a></p>
 </div>
@@ -34,7 +34,7 @@ ChatSprig opens the ChatGPT and Gemini websites directly. On either service’s 
 
 ## Get started
 
-**Chrome Web Store:** [install ChatSprig](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The local extension is version 2.5.1, with ChatGPT `/btw` branches, Gemini support, Ask in sidebar, Compact view controls, custom prompts, and skill completion.
+**Chrome Web Store:** [install ChatSprig](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The local extension is version 2.5.2, with ChatGPT `/btw` branches, Gemini support, Ask in sidebar, Compact view controls, custom prompts, and skill completion.
 
 ### Demo
 
@@ -150,9 +150,10 @@ Plain JavaScript. Manifest V3. No runtime framework or build step.
 node --test tests/*.test.mjs
 
 # Run browser regressions (requires ego-browser)
-ego-browser nodejs < tests/browser/btw.mjs
-ego-browser nodejs < tests/browser/btw-completion.mjs
-ego-browser nodejs < tests/browser/compact-margins.mjs
+python3 scripts/test_browser.py btw
+python3 scripts/test_browser.py btw-completion
+python3 scripts/test_browser.py btw-invalidation
+python3 scripts/test_browser.py compact-margins
 
 # Regenerate icon sizes from the approved artwork (macOS)
 python3 scripts/make_icons.py

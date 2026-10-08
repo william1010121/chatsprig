@@ -1,8 +1,8 @@
-// Run with: ego-browser nodejs < tests/browser/btw.mjs
+// Run with: python3 scripts/test_browser.py btw
 // A caller can prefix globalThis.qaSpace / qaPage to reuse its active TaskSpace.
 const fs = await import('node:fs/promises');
-// Ego's Node bridge has cwd=/; use the workspace path unless explicitly overridden.
-const root = process.env.CHATSPRIG_ROOT || '/Users/guoshengwei/Project/chatgpt-extension';
+const root = globalThis.qaRoot || process.env.CHATSPRIG_ROOT;
+if (!root) throw new Error('Run this test with scripts/test_browser.py to supply the checkout path.');
 const task = await taskSpace(globalThis.qaSpace || 'ChatSprig BTW HTML verification');
 console.log({spaceId:task.spaceId});
 const page = task.page(globalThis.qaPage || 'p1');
