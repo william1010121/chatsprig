@@ -9,6 +9,8 @@
   let promptChanged = false;
   const ready = cgptLoadSettings().then(settings => {
     if (!promptChanged && typeof settings.geminiExplainPrompt === 'string') explainPrompt = settings.geminiExplainPrompt;
+  }).catch(() => {
+    // Keep the default (or a newer synced prompt) usable if this read fails.
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync' || !changes.geminiExplainPrompt) return;
