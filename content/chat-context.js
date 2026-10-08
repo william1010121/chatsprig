@@ -248,16 +248,15 @@
   const hasMatch = (node, selector) => !!(node?.matches?.(selector) || node?.querySelector?.(selector));
   let observedPath = location.pathname;
   let scheduled = false;
+  let sendScheduled = false;
   let modeDirty = false;
   let sendDirty = false;
   function flushContext() {
     scheduled = false;
     const updateMode = modeDirty;
-    const updateSend = sendDirty;
-    modeDirty = sendDirty = false;
+    modeDirty = false;
     observedPath = location.pathname;
     if (updateMode) refreshMode();
-    if (updateSend && pendingSend) checkSend();
   }
   function scheduleContext() {
     if (scheduled) return;
@@ -265,6 +264,18 @@
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flushContext);
     else if (typeof queueMicrotask === 'function') queueMicrotask(flushContext);
     else flushContext();
+  }
+  function scheduleSendCheck() {
+    if (sendScheduled) return;
+    sendScheduled = true;
+    // Hidden tabs can suspend animation frames beyond the send timeout. Count
+    // bookkeeping must run independently of the coalesced mode UI refresh.
+    const flushSend = () => {
+      sendScheduled = sendDirty = false;
+      if (pendingSend) checkSend();
+    };
+    if (typeof queueMicrotask === 'function') queueMicrotask(flushSend);
+    else Promise.resolve().then(flushSend);
   }
   new MutationObserver(records => {
     // Keep direct refreshes synchronous; production callbacks always carry records.
@@ -284,7 +295,8 @@
         if (pendingSend && hasMatch(node, messageSelector)) sendDirty = true;
       }
     }
-    if (modeDirty || sendDirty) scheduleContext();
+    if (modeDirty) scheduleContext();
+    if (sendDirty && pendingSend) scheduleSendCheck();
   }).observe(document.documentElement, {
     childList: true, subtree: true, characterData: true, attributes: true,
     attributeFilter: ['aria-selected', 'aria-checked', 'aria-pressed', 'aria-label', 'aria-controls', 'aria-describedby', 'role', 'data-tpp-toggle-value', 'data-chatgpt-composer', 'data-thread-find-composer', 'data-message-id', 'data-chatgpt-search-message-ids', 'aria-hidden', 'hidden', 'class', 'style']

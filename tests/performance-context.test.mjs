@@ -5,8 +5,8 @@ import vm from 'node:vm';
 
 const read = name => fs.readFileSync(new URL(`../content/${name}.js`, import.meta.url), 'utf8');
 function contextHarness() {
-  const frames = [], turns = [], orphanMessages = [], events = [];
-  const stats = { modeScans: 0, turnScans: 0, contains: 0 };
+  const frames = [], timers = [], turns = [], orphanMessages = [], events = [];
+  const stats = { modeScans: 0, userScans: 0, turnScans: 0, contains: 0 };
   let observer;
   const node = (attrs = {}) => ({
     attrs, nodeType: 1, hidden: false,
@@ -34,15 +34,18 @@ function contextHarness() {
   };
   const location = { hostname: 'chatgpt.com', pathname: '/c/perf' };
   const context = vm.createContext({
-    location, requestAnimationFrame: fn => frames.push(fn), setTimeout() {},
+    location, requestAnimationFrame: fn => frames.push(fn), queueMicrotask,
+    setTimeout(fn, delay) { timers.push({ fn, delay }); },
     Event: class { constructor(type) { this.type = type; } },
     document: {
       documentElement: {},
       querySelector: selector => selector === 'main' ? main : composer,
       querySelectorAll(selector) {
         if (selector.includes('main [data-message-author-role=')) {
+          if (selector.includes('"user"')) stats.userScans++;
           return turns.flatMap(turn => turn.entries).filter(entry => selector.includes(`"${entry.attrs['data-message-author-role']}"`));
         }
+        if (selector.startsWith('main ')) return [];
         stats.modeScans++;
         return [group];
       },
@@ -64,7 +67,7 @@ function contextHarness() {
     turns.push(result);
     return entry;
   }
-  return { api: context.cgptChatContext, stats, frames, turns, orphanMessages, group, location, events, turn,
+  return { api: context.cgptChatContext, stats, frames, timers, turns, orphanMessages, group, location, events, turn,
     mutate: records => observer(records),
     work() { chat.attrs['aria-checked'] = 'false'; work.attrs['aria-checked'] = 'true'; },
     flush() { while (frames.length) frames.shift()(); }
@@ -107,7 +110,7 @@ test('streaming and editor mutations skip mode scans; mode evidence coalesces an
   assert.ok(h.events.includes('cgpt-helper-mode-change'));
 });
 
-test('ancestor visibility changes and navigation invalidate mode; new user turns still update local counts', () => {
+test('ancestor visibility changes and navigation invalidate mode; new user turns still update local counts', async () => {
   const h = contextHarness();
   const before = h.stats.modeScans;
   h.group.hidden = true;
@@ -120,12 +123,68 @@ test('ancestor visibility changes and navigation invalidate mode; new user turns
   h.api.beginSendObservation();
   const added = h.turn(10);
   h.mutate([{ type: 'childList', target: {}, addedNodes: [added], removedNodes: [] }]);
+  await Promise.resolve();
   h.flush();
   assert.equal(h.api.getCountState().cadence, 1);
   assert.ok(h.events.includes('cgpt-helper-count-change'));
   h.location.pathname = '/c/other';
   h.mutate([{ type: 'characterData', target: { nodeType: 3 } }]);
   assert.equal(h.frames.length, 1);
+});
+
+test('hidden tabs count pending sends before their timeout without running animation frames', async () => {
+  const h = contextHarness();
+  h.turn(9); // Virtualized history: local cadence is the only reliable count.
+  assert.equal(h.api.getHistory(), null);
+  h.api.beginSendObservation();
+  const before = h.stats.userScans;
+  const added = h.turn(10);
+  for (let i = 0; i < 20; i++) {
+    h.mutate([{ type: 'childList', target: {}, addedNodes: [added], removedNodes: [] }]);
+  }
+  assert.equal(h.stats.userScans, before, 'mutation delivery coalesces send checks');
+  await Promise.resolve();
+  assert.equal(h.stats.userScans, before + 1);
+  assert.equal(h.frames.length, 0, 'message counting does not schedule a mode frame');
+  assert.deepEqual(h.timers.map(timer => timer.delay), [10000]);
+  h.timers[0].fn(); // Background tab remains suspended past the send timeout.
+  assert.equal(h.api.getCountState().cadence, 1);
+  assert.equal(h.events.filter(type => type === 'cgpt-helper-count-change').length, 1);
+  const scans = h.stats.userScans;
+  h.mutate([{ type: 'childList', target: added, addedNodes: [], removedNodes: [] }]);
+  await Promise.resolve();
+  assert.equal(h.stats.userScans, scans, 'completed sends stop bookkeeping during streaming');
+});
+
+test('a queued mode frame cannot block pending send counting or cancellation on navigation', async () => {
+  const h = contextHarness();
+  h.turn(9);
+  h.api.beginSendObservation();
+  h.mutate([{ type: 'attributes', target: h.group, attributeName: 'aria-checked' }]);
+  assert.equal(h.frames.length, 1);
+  const modeScans = h.stats.modeScans;
+  const added = h.turn(10);
+  h.mutate([{ type: 'childList', target: {}, addedNodes: [added], removedNodes: [] }]);
+  await Promise.resolve();
+  assert.equal(h.api.getCountState().cadence, 1);
+  assert.equal(h.stats.modeScans, modeScans, 'counting does not flush the queued mode scan');
+  assert.equal(h.frames.length, 1);
+
+  h.api.beginSendObservation();
+  h.location.pathname = '/c/other';
+  h.mutate([{ type: 'characterData', target: { nodeType: 3 } }]);
+  await Promise.resolve();
+  assert.equal(h.frames.length, 1, 'navigation keeps mode refresh coalesced');
+  assert.equal(h.events.filter(type => type === 'cgpt-helper-count-change').length, 2,
+    'the pending send is cancelled before the hidden mode frame resumes');
+  h.location.pathname = '/c/perf';
+  const unrelated = h.turn(11);
+  h.mutate([{ type: 'childList', target: {}, addedNodes: [unrelated], removedNodes: [] }]);
+  await Promise.resolve();
+  h.timers.forEach(timer => timer.fn());
+  h.flush();
+  assert.equal(h.events.filter(type => type === 'cgpt-helper-count-change').length, 2,
+    'a send cancelled on another route cannot count a later message');
 });
 
 test('disabled and empty prompts avoid history reads; ordinary keystrokes and unrelated clicks avoid input lookup', async () => {
