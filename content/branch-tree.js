@@ -21,7 +21,7 @@
     for (const [key, branch] of Object.entries(items || {})) {
       if (!ID.test(branch?.session || '') || !ID.test(branch?.id || '') || key !== `${PREFIX}${branch.session}:${branch.id}`) continue;
       const opening = branch.state === 'opening' && !(now - branch.createdAt > OPENING_GRACE);
-      add(branch.session, { key, chat: conversationId(branch.url), opening });
+      add(branch.session, { key, chat: conversationId(branch.url), opening, title: typeof branch.title === 'string' ? branch.title : '' });
     }
     const known = new Set([...index.values()].flat().map(record => record.chat));
     for (const [key, entry] of Object.entries(items || {})) {
@@ -84,7 +84,21 @@
     const top = group => Math.min(...group.map(row => position.get(row.id)));
     return groups.sort((a, b) => top(a) - top(b)).flat();
   }
-  globalThis.cgptBranchTree = { branchIndex, descendants, pickParent, arrange, baseTitle };
+  // Plain conversation links for root and every branch below it, indented by depth.
+  // title(id) may return '' when a chat's title is unknown. Cycle-safe.
+  function linkTree(index, root, title = () => '', skip = () => false) {
+    const lines = [], seen = new Set();
+    const visit = (id, depth) => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      const url = `https://chatgpt.com/c/${id}`, name = (title(id) || '').replace(/\s+/g, ' ').trim();
+      lines.push(`${'  '.repeat(depth)}- ${name ? `${name} — ${url}` : url}`);
+      for (const { chat } of index.get(id) || []) if (chat && !skip(chat)) visit(chat, depth + 1);
+    };
+    visit(root, 0);
+    return { text: lines.join('\n'), count: lines.length };
+  }
+  globalThis.cgptBranchTree = { branchIndex, descendants, pickParent, arrange, baseTitle, linkTree };
 
   if (window.top !== window.self || !/^(chatgpt\.com|chat\.openai\.com)$/.test(location.hostname)) return;
 
@@ -421,6 +435,29 @@
     const current = /\/c\/([a-zA-Z0-9-]+)(?:\/|$)/.exec(location.pathname)?.[1];
     if (current && deleted.has(current)) location.assign(`/c/${rootId}`);
   }
+
+  // Copy links: titles come from the sidebar, then /btw questions, then ChatGPT's API
+  // within a short budget so the click's clipboard permission has not expired.
+  globalThis.cgptBranchLinks = async rootId => {
+    if (!extensionActive() || !ID.test(rootId || '')) return null;
+    await load();
+    const titles = new Map();
+    for (const chat of sidebarChats()) if (chat.title && !titles.has(chat.id)) titles.set(chat.id, chat.title);
+    const current = /\/c\/([a-zA-Z0-9-]+)(?:\/|$)/.exec(location.pathname)?.[1];
+    if (current && !titles.has(current) && document.title && document.title !== 'ChatGPT') titles.set(current, document.title.replace(/\s*[|·-]\s*ChatGPT$/, ''));
+    const { chats } = descendants(index, rootId);
+    const missing = [rootId, ...chats].filter(chat => !titles.has(chat) && !deleted.has(chat));
+    const deadline = Date.now() + 2500;
+    await Promise.all(missing.slice(0, 20).map(async chat => {
+      try {
+        const response = await Promise.race([api(`/backend-api/conversation/${chat}`),
+          new Promise((_, reject) => window.setTimeout(() => reject(new Error('timeout')), Math.max(0, deadline - Date.now())))]);
+        if (response.ok) { const data = await response.json(); if (data?.title) titles.set(chat, data.title); }
+      } catch {}
+    }));
+    const question = new Map([...index.values()].flat().filter(record => record.chat && record.title).map(record => [record.chat, record.title]));
+    return linkTree(index, rootId, chat => titles.get(chat) || question.get(chat) || '', chat => deleted.has(chat));
+  };
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (!extensionActive() || area !== 'local') return;
