@@ -99,6 +99,7 @@
     if (!shadow || invalidated) return;
     const toggle = shadow.querySelector('.toggle');
     toggle.textContent = `Branches · ${branches.length}`;
+    shadow.querySelector('.copy-links').hidden = !session();
     const status = shadow.querySelector('[role="status"]');
     status.textContent = notice;
     shadow.querySelector('.hint').textContent = pending ? 'Opening branch…' : '/btw + question';
@@ -127,6 +128,28 @@
       button.appendChild(state); list.appendChild(button);
     }
   }
+  // Plain (not shared) links to this chat and every branch below it, indented by level.
+  let copyTimer = 0;
+  async function copyLinks(button) {
+    const source = session();
+    if (!source || button.disabled) return;
+    button.disabled = true; button.textContent = 'Copying…';
+    const links = Promise.resolve(globalThis.cgptBranchLinks?.(source)).catch(() => null)
+      .then(result => result || { text: `- https://chatgpt.com/c/${source}`, count: 1 });
+    let label;
+    try {
+      // A pending ClipboardItem keeps this click's permission while titles load.
+      if (typeof ClipboardItem === 'function' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': links.then(result => new Blob([result.text], { type: 'text/plain' })) })]);
+      } else await navigator.clipboard.writeText((await links).text);
+      const { count } = await links;
+      label = `Copied · ${count} link${count === 1 ? '' : 's'}`;
+    } catch { label = 'Copy failed'; }
+    if (invalidated) return;
+    button.disabled = false; button.textContent = label;
+    window.clearTimeout(copyTimer);
+    copyTimer = window.setTimeout(() => { if (shadow) shadow.querySelector('.copy-links').textContent = 'Copy links'; }, 1800);
+  }
   function mount() {
     const input = getInput();
     const form = input?.closest('form');
@@ -139,7 +162,7 @@
         :host{font:12px ui-sans-serif,system-ui,-apple-system,sans-serif;color:inherit}
         :host{container-type:inline-size}
         .bar{display:flex;align-items:center;gap:10px;padding:5px 6px 8px;border-radius:16px;background:var(--bg-primary,var(--main-surface-primary,var(--cgpt-btw-surface,Canvas)))}
-        .toggle,.hint{flex-shrink:0}.recent{margin-left:auto;display:flex;justify-content:flex-end;gap:6px;min-width:0;overflow:hidden;flex:0 1 auto}
+        .toggle,.hint,.copy-links{flex-shrink:0}.copy-links[hidden]{display:none}.recent{margin-left:auto;display:flex;justify-content:flex-end;gap:6px;min-width:0;overflow:hidden;flex:0 1 auto}
         .recent-branch{min-width:0;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 150px;text-align:left;border-color:#8883;background:#8881}
         @container (max-width:650px){.recent-branch:nth-child(n+3){display:none}}
         @container (max-width:480px){.hint{display:none}.recent-branch:nth-child(n+2){display:none}}
@@ -148,7 +171,7 @@
         .hint{opacity:.55;font-size:11px}.list{position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;max-height:260px;overflow:auto;background:var(--cgpt-btw-surface,Canvas);color:CanvasText;box-shadow:0 8px 28px #0003;border:1px solid #8885;border-radius:14px;padding:6px}
         .list[hidden]{display:none}.branch{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;border:0;border-radius:8px;text-align:left;padding:10px 12px;overflow-wrap:anywhere}.branch span{opacity:.6;flex-shrink:0}
         p{margin:10px;opacity:.65;line-height:1.5}[role=status]:empty{display:none}[role=status]{padding:0 8px 7px;line-height:1.5}
-      </style><div class="bar"><button type="button" class="toggle" aria-expanded="false" aria-controls="btw-list">Branches · 0</button><span class="hint">/btw + question</span><div class="recent" role="group" aria-label="Recent branches"></div></div><div class="list" id="btw-list" aria-label="Session branches" hidden></div><div role="status" aria-live="polite"></div>`;
+      </style><div class="bar"><button type="button" class="toggle" aria-expanded="false" aria-controls="btw-list">Branches · 0</button><button type="button" class="copy-links" title="Copy plain links to this chat and every branch below it, indented by level">Copy links</button><span class="hint">/btw + question</span><div class="recent" role="group" aria-label="Recent branches"></div></div><div class="list" id="btw-list" aria-label="Session branches" hidden></div><div role="status" aria-live="polite"></div>`;
       const beginHover = event => {
         if (event.pointerType !== 'mouse') return;
         window.clearTimeout(hoverTimer); hoverOpen = true; updateListVisibility();
@@ -163,6 +186,7 @@
         const button = event.target.closest('button');
         if (!button) return;
         if (button.classList.contains('toggle')) { expanded = !expanded; hoverOpen = false; render(); return; }
+        if (button.classList.contains('copy-links')) { void copyLinks(button); return; }
         const branch = branches.find(item => item.id === button.dataset.id);
         if (!branch || pending) return;
         closeList(); render();

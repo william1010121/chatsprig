@@ -99,3 +99,30 @@ test('recently opening /btw records stay owned by btw.js; abandoned ones do not'
   assert.equal(fresh.opening, true);
   assert.equal(stale.opening, false);
 });
+
+test('linkTree lists plain links for a chat and every branch below it, indented by level', () => {
+  const { branchIndex, linkTree } = helpers();
+  const index = branchIndex(Object.fromEntries([
+    record('root', 'b1', 'child'), record('child', 'b2', 'grandchild'), record('root', 'b3', null),
+    record('root', 'b4', 'sibling'), record('grandchild', 'b5', 'root'), record('other', 'b6', 'unrelated'),
+    ['branchParent:native', { parent: 'child' }], ['branchParent:gone', { parent: 'root' }]
+  ]));
+  const titles = { root: 'Trip  plan', child: 'Hotels', native: 'Branch · Trip plan' };
+  const { text, count } = linkTree(index, 'root', id => titles[id] || '', id => id === 'gone');
+  assert.equal(text, [
+    '- Trip plan — https://chatgpt.com/c/root',
+    '  - Hotels — https://chatgpt.com/c/child',
+    '    - https://chatgpt.com/c/grandchild',
+    '    - Branch · Trip plan — https://chatgpt.com/c/native',
+    '  - https://chatgpt.com/c/sibling'
+  ].join('\n'));
+  assert.equal(count, 5);
+  assert.equal(linkTree(index, 'lonely').text, '- https://chatgpt.com/c/lonely');
+  // A partly failed Clean keeps a deleted branch's records so a surviving child stays reachable.
+  assert.equal(linkTree(index, 'root', () => '', id => id === 'child' || id === 'gone').text, [
+    '- https://chatgpt.com/c/root',
+    '  - https://chatgpt.com/c/grandchild',
+    '  - https://chatgpt.com/c/native',
+    '  - https://chatgpt.com/c/sibling'
+  ].join('\n'));
+});

@@ -97,6 +97,14 @@ Typing `/b`, `/bt`, or `/btw` selects the BTW suggestion. Enter completes it to 
 
 Hover over **Branches · N** above the prompt to see the BTW branches created for this conversation; click to keep the list open, or use the keyboard/touch controls. The right side shows up to three recent ready branches, newest first, with truncated titles for one-click access. Narrow composers show fewer shortcuts. Select a branch to open its floating window. Switching and closing retain loaded conversations and drafts. Branch titles and resolved URLs are stored locally per source conversation, so a page reload can reopen an existing branch without creating it again or resending its question. Unsent iframe drafts survive switching, but not a host-page reload. Gemini and embedded composers do not offer `/btw`.
 
+**Copy links**, beside **Branches · N**, copies plain links to the current conversation and every branch below it, including branches of branches, as an indented list. Nothing is shared or published; each line is the chat's title (when known) and its `https://chatgpt.com/c/…` link:
+
+```text
+- Trip plan — https://chatgpt.com/c/…
+  - Hotels — https://chatgpt.com/c/…
+    - Branch · Trip plan — https://chatgpt.com/c/…
+```
+
 In ChatGPT's left history sidebar, branch chats are nested under the conversation they came from, and branches of branches nest one level further, each indented with a guide line. A group sits where its topmost member appears in the native list, and nesting applies within the same native list (Pinned, Recents or a project). `/btw` branches use their local records. Native branches (titled `分支 · …` or `Branch · …`, including ones made with ChatGPT's own branch action or in another browser) are matched once to the loaded conversation with the same source title that shares the most copied messages, and the result is remembered locally. Hover over a conversation that has branches to show **Clean · N** at the right of its row; after confirmation it deletes every branch chat below it, including branches of branches, through ChatGPT's normal delete, and removes their local records. The source conversation itself is kept. If you are viewing a deleted branch, ChatSprig returns to the source conversation.
 
 BTW always attempts to send its explicit question once, independently of the Ask in sidebar Auto-send setting. Existing branch drafts or generation keep the question as a draft instead. If branch creation or delivery fails, the source draft stays available; check the floating chat before retrying. A branch uses ChatGPT's normal conversation retention unless the source URL explicitly identifies temporary mode. Alt+N opens a fresh temporary chat while retaining your branch.
