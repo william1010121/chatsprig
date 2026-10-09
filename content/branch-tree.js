@@ -440,19 +440,23 @@
   // within a short budget so the click's clipboard permission has not expired.
   globalThis.cgptBranchLinks = async rootId => {
     if (!extensionActive() || !ID.test(rootId || '')) return null;
+    const deadline = Date.now() + 2500;
+    const inTime = promise => Promise.race([promise, new Promise((_, reject) =>
+      window.setTimeout(() => reject(new Error('timeout')), Math.max(0, deadline - Date.now())))]);
     await load();
+    // Native branches that just appeared are matched to their source in the background;
+    // include them when that pass finishes in time.
+    if (inferring) { try { await inTime(inferPass); await load(); } catch {} }
     const titles = new Map();
     for (const chat of sidebarChats()) if (chat.title && !titles.has(chat.id)) titles.set(chat.id, chat.title);
     const current = /\/c\/([a-zA-Z0-9-]+)(?:\/|$)/.exec(location.pathname)?.[1];
     if (current && !titles.has(current) && document.title && document.title !== 'ChatGPT') titles.set(current, document.title.replace(/\s*[|·-]\s*ChatGPT$/, ''));
     const { chats } = descendants(index, rootId);
     const missing = [rootId, ...chats].filter(chat => !titles.has(chat) && !deleted.has(chat));
-    const deadline = Date.now() + 2500;
     await Promise.all(missing.slice(0, 20).map(async chat => {
       try {
-        const response = await Promise.race([api(`/backend-api/conversation/${chat}`),
-          new Promise((_, reject) => window.setTimeout(() => reject(new Error('timeout')), Math.max(0, deadline - Date.now())))]);
-        if (response.ok) { const data = await response.json(); if (data?.title) titles.set(chat, data.title); }
+        const data = await inTime(api(`/backend-api/conversation/${chat}`).then(response => response.ok ? response.json() : null));
+        if (data?.title) titles.set(chat, data.title);
       } catch {}
     }));
     const question = new Map([...index.values()].flat().filter(record => record.chat && record.title).map(record => [record.chat, record.title]));
