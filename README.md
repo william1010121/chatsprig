@@ -38,6 +38,8 @@ ChatSprig opens the ChatGPT and Gemini websites directly. On either service’s 
 
 ### Demo
 
+The [ChatSprig showcase site](https://chatsprig.driseam.com/) walks through all 14 features with live demos and a 3-minute tour video. Its source is in [`web/`](web/README.md).
+
 Watch the [ChatSprig 2.1.1 workflow demo](demo/ChatSprig-2.1.1-demo-1080p.mp4), with the keyboard interaction and the full open → ask → return flow shown on screen. See the [demo notes and attribution](demo/README.md).
 
 ### Install from this repository
@@ -175,6 +177,7 @@ options/            Settings page
 icons/              Packaged extension icons
 assets/branding/    Approved GPT Image artwork and generation prompts
 store/              Listing copy, review notes, and promotional assets
+web/                Showcase site and tour video (chatsprig.driseam.com)
 scripts/            Icon export and release packaging
 ```
 

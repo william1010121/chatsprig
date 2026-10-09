@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ChatSprig — feature film</title>
+<link rel="stylesheet" href="demos/demo.css">
+<style>
+  html, body { margin: 0; background: #000; }
+  #film { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #faf7ef; color: #13261f;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+  .bg { position: absolute; inset: -10%; background:
+      radial-gradient(900px 600px at 12% 10%, rgba(31, 122, 87, .13), transparent 60%),
+      radial-gradient(900px 700px at 95% 95%, rgba(23, 77, 59, .12), transparent 60%),
+      radial-gradient(700px 500px at 85% 0%, rgba(214, 176, 92, .12), transparent 60%); }
+  .f-grain { position: absolute; inset: 0; opacity: .5; background-image: radial-gradient(rgba(19, 38, 31, .05) 1px, transparent 1px); background-size: 22px 22px; }
+  .f-seg { position: absolute; inset: 0; opacity: 0; }
+  /* intro / outro */
+  .f-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .f-logo { width: 168px; height: 168px; border-radius: 40px; box-shadow: 0 30px 60px rgba(23, 77, 59, .25); }
+  .f-big { font-size: 128px; font-weight: 800; letter-spacing: -5px; margin: 34px 0 6px; color: #174d3b; }
+  .f-tag { font-size: 44px; font-weight: 600; letter-spacing: -1px; color: #13261f; }
+  .f-sub { font-size: 25px; color: #4b5d55; margin-top: 18px; }
+  .f-pills { display: flex; gap: 14px; margin-top: 44px; }
+  .f-pills span { padding: 12px 22px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px rgba(23, 77, 59, .15); font-size: 21px; font-weight: 600; color: #174d3b; }
+  .f-pills span.f-solid { background: #174d3b; color: #faf7ef; box-shadow: none; }
+  /* group card */
+  .f-gnum { font: 600 22px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 4px; text-transform: uppercase; }
+  .f-gtitle { font-size: 112px; font-weight: 800; letter-spacing: -4.5px; margin: 14px 0 12px; }
+  .f-gsub { font-size: 30px; color: #4b5d55; max-width: 1100px; }
+  /* chapter */
+  .f-cap { position: absolute; left: 96px; top: 0; bottom: 0; width: 520px; display: flex; flex-direction: column; justify-content: center; }
+  .f-cnum { font: 600 20px ui-monospace, SFMono-Regular, Menlo, monospace; color: #6b7c74; letter-spacing: 2px; }
+  .f-cgrp { align-self: flex-start; margin: 18px 0 20px; padding: 7px 16px; border-radius: 999px; font-size: 18px; font-weight: 700; letter-spacing: .4px; color: #fff; }
+  .f-ctitle { font-size: 56px; line-height: 1.05; font-weight: 800; letter-spacing: -2px; margin: 0 0 24px; }
+  .f-cblurb { font-size: 23px; line-height: 1.55; color: #3d4f47; }
+  .f-ckeys { display: flex; align-items: center; gap: 10px; margin-top: 30px; font-size: 18px; color: #6b7c74; }
+  .f-ckeys kbd { min-width: 52px; height: 52px; padding: 0 14px; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(#fff, #f1efe8); color: #13261f;
+    font: 600 22px -apple-system, sans-serif; box-shadow: 0 0 0 1px rgba(19, 38, 31, .15), 0 3px 0 rgba(19, 38, 31, .18); }
+  .f-ckeys .f-or { margin: 0 6px; }
+  .f-frame { position: absolute; left: 668px; top: 182px; width: 1172px; height: 696px; border-radius: 18px; overflow: hidden;
+    box-shadow: 0 40px 90px rgba(19, 38, 31, .28), 0 0 0 1px rgba(19, 38, 31, .1); background: #fff; }
+  .f-frame .stage { transform: scale(.915625); }
+  .f-bar { position: absolute; left: 96px; right: 80px; bottom: 54px; height: 4px; display: flex; gap: 6px; }
+  .f-bar i { flex: 1; border-radius: 2px; background: rgba(19, 38, 31, .1); position: relative; overflow: hidden; }
+  .f-bar i b { position: absolute; left: 0; top: 0; bottom: 0; background: #174d3b; }
+  .f-brand { position: absolute; left: 96px; top: 64px; display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 700; color: #174d3b; }
+  .f-brand img { width: 36px; height: 36px; border-radius: 9px; }
+</style>
+</head>
+<body>
+<div id="film"><div class="bg"></div><div class="f-grain"></div><div id="root"></div></div>
+<script src="demos/engine.js"></script>
+<script src="demos/scenes.js"></script>
+<script>
+(() => {
+  const { ease, clamp, lerp } = Demo;
+  const GROUPS = {
+    overlay: { name: "Chat anywhere", color: "#1f7a57", sub: "ChatGPT and Gemini in a floating window, on the page you are already reading." },
+    flow: { name: "Conversation flow", color: "#2563eb", sub: "Pass text between chats, explore side questions, keep branches tidy." },
+    write: { name: "Write faster", color: "#c2410c", sub: "Reusable prompts and instructions that arrive exactly when you need them." },
+    read: { name: "Read better", color: "#7c3aed", sub: "A calmer layout for long answers, and math you can actually reuse." },
+  };
+  const keyHTML = (ks) => ks.map((k, i) => (i ? '<span class="f-or">then</span>' : "") + k.map((x) => `<kbd>${x}</kbd>`).join("")).join("");
+
+  // build the timeline
+  const segs = [];
+  let T = 0;
+  const add = (type, dur, data = {}) => { segs.push({ type, start: T, dur, ...data }); T += dur; };
+  add("intro", 5.2);
+  let lastGroup = null, n = 0;
+  const total = Demo.scenes.length;
+  for (const sc of Demo.scenes) {
+    if (sc.group !== lastGroup) { add("group", 2.6, { g: sc.group, gi: Object.keys(GROUPS).indexOf(sc.group) }); lastGroup = sc.group; }
+    add("chapter", sc.dur + 1.3, { sc, n: ++n });
+  }
+  add("outro", 6.5);
+  window.FILM_DURATION = T;
+
+  const root = document.getElementById("root");
+  const IMG = '<img class="f-logo" src="assets/logo.png">';
+
+  function fadeIO(lt, dur, a = 0.5, b = 0.5) { return Math.min(ease.out(clamp(lt / a)), 1 - ease.in(clamp((lt - (dur - b)) / b))); }
+
+  window.renderAt = (t) => {
+    const s = segs.find((x) => t >= x.start && t < x.start + x.dur) || segs[segs.length - 1];
+    const lt = t - s.start;
+    const k = (a, d, e = ease.out) => e(clamp((lt - a) / d));
+    if (s.type === "intro" || s.type === "outro") {
+      const out = s.type === "outro";
+      root.innerHTML = `<div class="f-seg f-center" style="opacity:1">${IMG}<div class="f-big">ChatSprig</div><div class="f-tag">Ask here. Stay here.</div>
+        <div class="f-sub">${out ? "Temporary ChatGPT &amp; Gemini chats — right on your page." : "Temporary ChatGPT &amp; Gemini chats, right on the page you're reading."}</div>
+        ${out ? '<div class="f-pills"><span class="f-solid">Free on the Chrome Web Store</span><span>github.com/william1010121/chatsprig</span></div>' : ""}</div>`;
+      const fo = out ? 1 : 1 - ease.in(clamp((lt - (s.dur - 0.6)) / 0.6));
+      const el = root.firstChild; el.style.opacity = fo;
+      const st = (sel, a, y = 24) => { const e = el.querySelector(sel); if (!e) return; const p = k(a, 0.8); e.style.opacity = p; e.style.transform = `translateY(${(1 - p) * y}px)`; };
+      const lg = el.querySelector(".f-logo"), p = k(0.2, 1.0, ease.back);
+      lg.style.opacity = clamp(k(0.2, 0.5)); lg.style.transform = `scale(${lerp(0.6, 1, p)}) rotate(${(1 - p) * -8}deg)`;
+      st(".f-big", 0.7); st(".f-tag", 1.3); st(".f-sub", 1.8); st(".f-pills", 2.4);
+      return;
+    }
+    if (s.type === "group") {
+      const g = GROUPS[s.g];
+      root.innerHTML = `<div class="f-seg f-center"><div class="f-gnum" style="color:${g.color}">Part ${s.gi + 1} of 4</div><div class="f-gtitle" style="color:${g.color}">${g.name}.</div><div class="f-gsub">${g.sub}</div></div>`;
+      const el = root.firstChild; el.style.opacity = fadeIO(lt, s.dur, 0.45, 0.4);
+      [".f-gnum", ".f-gtitle", ".f-gsub"].forEach((q, i) => { const e = el.querySelector(q), p = k(0.1 + i * 0.15, 0.7); e.style.transform = `translateY(${(1 - p) * 30}px)`; e.style.opacity = p; });
+      return;
+    }
+    // chapter
+    const sc = s.sc, g = GROUPS[sc.group];
+    root.innerHTML = `<div class="f-seg" style="opacity:1">
+      <div class="f-brand"><img src="assets/logo.png">ChatSprig</div>
+      <div class="f-cap"><div class="f-cnum">${String(s.n).padStart(2, "0")} / ${total}</div><div class="f-cgrp" style="background:${g.color}">${g.name}</div>
+        <div class="f-ctitle">${sc.title}</div><div class="f-cblurb">${sc.blurb.replace(/Option\+(\w)/g, "⌥$1")}</div>
+        ${sc.keys.length ? `<div class="f-ckeys">${keyHTML(sc.keys)}</div>` : ""}</div>
+      <div class="f-frame"><div class="stage"></div></div>
+      <div class="f-bar">${Demo.scenes.map((_, i) => `<i><b style="width:${i + 1 < s.n ? 100 : i + 1 === s.n ? clamp((lt - 0.65) / sc.dur) * 100 : 0}%"></b></i>`).join("")}</div></div>`;
+    const el = root.firstChild;
+    const io = fadeIO(lt, s.dur, 0.55, 0.45);
+    const cap = el.querySelector(".f-cap");
+    [...cap.children].forEach((c, i) => { const p = k(0.05 + i * 0.08, 0.6); c.style.opacity = Math.min(p, io); c.style.transform = `translateX(${(1 - p) * -28}px)`; });
+    const fr = el.querySelector(".f-frame"), fp = k(0.1, 0.7);
+    fr.style.opacity = Math.min(fp, io);
+    fr.style.transform = `translateX(${(1 - fp) * 60}px) scale(${lerp(0.97, 1, fp) - (1 - io) * 0.02})`;
+    el.querySelector(".f-brand").style.opacity = 1;
+    el.querySelector(".f-bar").style.opacity = 1;
+    Demo.renderInto(fr.firstChild, sc, clamp(lt - 0.65, 0, sc.dur), 0.915625);
+  };
+
+  // live preview when opened directly: play in real time (click to restart)
+  if (!location.search.includes("render")) {
+    let t0 = performance.now();
+    document.addEventListener("click", () => (t0 = performance.now()));
+    const loop = (now) => { const t = ((now - t0) / 1000) % T; renderAt(t); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+})();
+</script>
+</body>
+</html>

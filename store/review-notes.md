@@ -1,6 +1,6 @@
 # ChatSprig submission notes
 
-- Version: 2.6.2 (upload ZIP: dist/chatsprig-2.6.2.zip; not yet submitted)
+- Version: 2.6.2 (upload ZIP: dist/chatsprig-2.6.2.zip; pending review, resubmitted October 9, 2026)
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
@@ -79,7 +79,7 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: 2.6.2 is prepared locally; it replaces the 2.6.1 submission (October 9, 2026), whose review is cancelled. Version 2.3.2 is published. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
+- Status: 2.6.2 pending review; resubmitted October 9, 2026 after cancelling its first review to set the homepage URL to https://chatsprig.driseam.com/. It replaces the 2.6.1 submission, whose review is cancelled. Version 2.3.2 is published. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.

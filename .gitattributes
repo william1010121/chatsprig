@@ -1,0 +1,2 @@
+web/media/*.mp4 filter=lfs diff=lfs merge=lfs -text
+web/media/music/*.ogg filter=lfs diff=lfs merge=lfs -text
