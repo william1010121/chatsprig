@@ -14,6 +14,7 @@ Provide an in-page workspace for temporary ChatGPT and Gemini conversations, wit
 
 - Send `/btw` questions and Ask in sidebar selections sooner: the filled draft is verified as soon as it appears and the send button is checked every 20 ms instead of after fixed 100 ms waits.
 - Skip composer lookups in `/btw` scroll, resize and key handlers when the command menu is not involved, reducing layout work while ChatGPT streams.
+- Follow ChatGPT's dark theme in the Branches bar and the Clean chip. ChatGPT now marks its theme with `data-theme` instead of a `dark` class, and no longer exposes the surface variables the bar used, so the bar matches the page background directly.
 
 ## Changes in 2.6.0
 
