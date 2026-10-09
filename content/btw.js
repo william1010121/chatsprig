@@ -343,8 +343,9 @@
     syncCommand(input);
   }
   window.addEventListener('keydown', event => {
+    if (event.isComposing || event.keyCode === 229 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
     const input = getInput();
-    if (event.isComposing || event.keyCode === 229 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || !input?.contains(event.target)) return;
+    if (!input?.contains(event.target)) return;
     if (event.key === 'Escape' && commandButton?.isConnected) {
       dismissedQuery = readText(input); removeCommand(); return;
     }
@@ -441,13 +442,15 @@
   }, { capture: true, signal: lifetime.signal });
   // ChatGPT's global Escape handler can consume keydown and blur the editor.
   window.addEventListener('keyup', event => {
+    if (event.key !== 'Escape') return;
     const input = getInput();
-    if (event.key === 'Escape' && slashQuery(input)) {
+    if (slashQuery(input)) {
       dismissedQuery = readText(input); removeCommand();
     }
   }, { capture: true, signal: lifetime.signal });
-  window.addEventListener('resize', () => positionFallback(getInput()), { signal: lifetime.signal });
-  document.addEventListener('scroll', () => positionFallback(getInput()), { capture: true, signal: lifetime.signal });
+  // Streaming auto-scroll fires constantly; skip the layout-reading input lookup unless the fallback menu is open.
+  window.addEventListener('resize', () => { if (fallbackMenu) positionFallback(getInput()); }, { signal: lifetime.signal });
+  document.addEventListener('scroll', () => { if (fallbackMenu) positionFallback(getInput()); }, { capture: true, signal: lifetime.signal });
   themeObserver = new MutationObserver(() => {
     if (host) host.style.colorScheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
   });
