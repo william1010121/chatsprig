@@ -676,7 +676,7 @@
   }
 
   // Shared only with this extension's other content scripts (isolated world).
-  globalThis.cgptOpenBtw = async (branch, text = null) => {
+  globalThis.cgptOpenBtw = async (branch, text = null, autoSend = true) => {
     await ready;
     if (pendingAsk) return { message: 'The floating chat is busy. Try again.' };
     if (!branch || !/^[a-zA-Z0-9-]+$/.test(branch.id) || !/^[a-zA-Z0-9-]+$/.test(branch.session) ||
@@ -688,7 +688,7 @@
     pendingAsk = request;
     askStatus('Creating branch…');
     try {
-      const result = await chrome.runtime.sendMessage({ type: 'askBtw', provider: 'chatgpt', branchId: branch.id, text, autoSend: true });
+      const result = await chrome.runtime.sendMessage({ type: 'askBtw', provider: 'chatgpt', branchId: branch.id, text, autoSend: autoSend !== false });
       if (request.controller.signal.aborted) return { message: 'Cancelled. Check the branch draft before retrying.' };
       askStatus(result?.message || 'Could not reach the branch. Your question remains in the main draft.');
       const record = frames.get(`btw:${branch.id}`);

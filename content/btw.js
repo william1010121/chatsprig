@@ -197,11 +197,15 @@
     const id = last?.getAttribute('data-message-id') || last?.getAttribute('data-chatgpt-search-message-ids')?.trim().split(/\s+/).at(-1) || last?.getAttribute('data-turn-id');
     return id && /^[a-zA-Z0-9-]+$/.test(id) ? id : null;
   }
-  async function createBranch(input, draft, question) {
+  // input/draft: the main /btw draft to clear once the branch is filled. A selection
+  // has no draft and follows the Ask in sidebar auto-send setting.
+  async function createBranch(input, draft, question, autoSend = true) {
     const source = session();
     const messageId = branchPoint();
     if (!source || !messageId) {
-      notice = 'Wait for a response in a saved ChatGPT conversation before using /btw.'; render(); return;
+      notice = input ? 'Wait for a response in a saved ChatGPT conversation before using /btw.' :
+        'Wait for the response to finish before asking in a new branch.';
+      render(); return;
     }
     if (!globalThis.cgptOpenBtw) { notice = 'Floating chat is unavailable. Reload the page and try again.'; render(); return; }
     pending = true; notice = ''; closeList();
@@ -215,14 +219,20 @@
     try {
       await save(branch);
       if (!extensionActive()) return;
-      const result = await globalThis.cgptOpenBtw(branch, question);
+      const result = await globalThis.cgptOpenBtw(branch, question, autoSend);
       if (!extensionActive()) return;
       if (result?.filled) {
         branch.state = 'ready';
-        if (session() === source && input.isConnected && readText(input) === draft) clearDraft(input);
-      } else { branch.state = 'failed'; notice = result?.message || 'Could not fill the branch. Your question is still in the main draft.'; }
+        if (input && session() === source && input.isConnected && readText(input) === draft) clearDraft(input);
+      } else {
+        branch.state = 'failed';
+        notice = result?.message || (input ? 'Could not fill the branch. Your question is still in the main draft.' : 'Could not fill the branch.');
+      }
       await save(branch);
-    } catch { branch.state = 'failed'; notice = 'Could not open or save the branch. Your question is still in the main draft.'; }
+    } catch {
+      branch.state = 'failed';
+      notice = input ? 'Could not open or save the branch. Your question is still in the main draft.' : 'Could not open or save the branch.';
+    }
     finally { pending = false; render(); }
   }
   // Join the native slash palette instead of displaying a second popup.
@@ -406,6 +416,14 @@
       dismissedQuery = input && readText(input); removeCommand();
     }
   }, { signal: lifetime.signal });
+  // Ask in new branch: the selection toolbar's counterpart to /btw.
+  globalThis.cgptAskInBranch = async text => {
+    if (!extensionActive() || pending || typeof text !== 'string' || !text.trim()) return;
+    let autoSend = true;
+    try { autoSend = (await globalThis.cgptLoadSettings?.())?.autoSendAskInSidebar !== false; } catch {}
+    if (!extensionActive() || pending) return;
+    await createBranch(null, null, text.trim(), autoSend);
+  };
   globalThis.cgptBtwBranchReady = (id, url) => {
     if (!extensionActive()) return;
     const branch = knownBranches.get(id);

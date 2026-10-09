@@ -409,3 +409,83 @@ test('Gemini selection positioning runs once per frame, reuses width and stays h
   windowListeners.resize(); listeners.selectionchange(); frames.shift()();
   assert.equal(layoutReads, 2, 'resize invalidates the width');
 });
+
+function floatingToolbar(label) {
+  const wrapper = new Element('div');
+  const toolbar = wrapper.appendChild(new Element('div'));
+  toolbar.appendChild(new Element('button', { textContent: label, className: 'native' }));
+  return { wrapper, toolbar };
+}
+const fixedStyle = wrapperOf => node => ({ position: node === wrapperOf() ? 'fixed' : 'static' });
+
+test('Ask in sidebar joins localized and Work-mode native Ask buttons', () => {
+  for (const label of ['問問 ChatGPT', '加入聊天', 'Add to chat', '向 ChatGPT 提问', 'ChatGPT に聞く']) {
+    let wrapper;
+    const h = harness('ask-sidebar.js', [], { getComputedStyle: fixedStyle(() => wrapper) });
+    const item = floatingToolbar(label);
+    wrapper = item.wrapper;
+    h.body.appendChild(wrapper);
+    h.mutate([{ target: h.body, addedNodes: [wrapper] }]);
+    h.flush();
+    assert.equal(item.toolbar.children.at(-1).id, 'cgpt-helper-ask-sidebar', label);
+    assert.equal(item.toolbar.children.at(-1).className, 'native');
+  }
+});
+
+test('an unknown-label floating toolbar is joined only beside a live message selection', () => {
+  let wrapper;
+  const target = { top: 300, bottom: 320 };
+  const selection = { isCollapsed: false, rangeCount: 1, toString: () => 'picked',
+    anchorNode: null, focusNode: null, getRangeAt: () => ({ getBoundingClientRect: () => target, cloneRange() { return this; } }) };
+  const message = new Element('div', { message: true });
+  const inside = message.appendChild(new Element('span'));
+  selection.anchorNode = selection.focusNode = { parentElement: inside };
+  const h = harness('ask-sidebar.js', [message], { getComputedStyle: fixedStyle(() => wrapper) });
+  const item = floatingToolbar('Frage ChatGPT');
+  wrapper = item.wrapper;
+  item.toolbar.getBoundingClientRect = () => ({ top: 260, bottom: 290 });
+  h.body.appendChild(wrapper);
+  h.mutate([{ target: h.body, addedNodes: [wrapper] }]);
+  h.flush();
+  assert.equal(item.toolbar.children.length, 1, 'no selection: not a selection toolbar');
+  h.window.getSelection = () => selection;
+  h.listeners.selectionchange();
+  h.mutate([{ target: h.body, addedNodes: [wrapper] }]);
+  h.flush();
+  assert.equal(item.toolbar.children.at(-1).id, 'cgpt-helper-ask-sidebar');
+});
+
+test('Ask in new branch appears in saved conversations and hands the selection to /btw', async () => {
+  let wrapper, branched;
+  const message = new Element('div', { message: true });
+  const inside = message.appendChild(new Element('span'));
+  const selection = { isCollapsed: false, rangeCount: 0, toString: () => 'explain this line',
+    anchorNode: { parentElement: inside }, focusNode: { parentElement: inside }, removeAllRanges() {} };
+  const h = harness('ask-sidebar.js', [message], {
+    location: { pathname: '/c/abc-123' }, getComputedStyle: fixedStyle(() => wrapper),
+    cgptAskInBranch(text) { branched = text; }, Event, MouseEvent: Event, PointerEvent: Event
+  });
+  h.body.dispatchEvent = () => {};
+  h.document.dispatchEvent = () => {};
+  const item = floatingToolbar('Ask ChatGPT');
+  wrapper = item.wrapper;
+  h.body.appendChild(wrapper);
+  h.mutate([{ target: h.body, addedNodes: [wrapper] }]);
+  h.flush();
+  const ids = item.toolbar.children.map(child => child.id);
+  assert.deepEqual(ids.slice(1), ['cgpt-helper-ask-sidebar', 'cgpt-helper-ask-branch']);
+  h.window.getSelection = () => selection;
+  h.listeners.selectionchange();
+  item.toolbar.children.at(-1).listeners.click({ preventDefault() {}, stopPropagation() {} });
+  await Promise.resolve();
+  assert.equal(branched, 'explain this line');
+
+  let homeWrapper;
+  const home = harness('ask-sidebar.js', [], { location: { pathname: '/' }, getComputedStyle: fixedStyle(() => homeWrapper) });
+  const homeItem = floatingToolbar('Ask ChatGPT');
+  homeWrapper = homeItem.wrapper;
+  home.body.appendChild(homeWrapper);
+  home.mutate([{ target: home.body, addedNodes: [homeWrapper] }]);
+  home.flush();
+  assert.deepEqual(homeItem.toolbar.children.map(child => child.id).slice(1), ['cgpt-helper-ask-sidebar']);
+});
