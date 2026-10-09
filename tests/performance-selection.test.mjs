@@ -474,6 +474,12 @@ test('Ask in new branch appears in saved conversations and hands the selection t
   h.flush();
   const ids = item.toolbar.children.map(child => child.id);
   assert.deepEqual(ids.slice(1), ['cgpt-helper-ask-sidebar', 'cgpt-helper-ask-branch']);
+  const branchButton = item.toolbar.children.at(-1);
+  item.toolbar.remove(branchButton);
+  h.mutate([{ target: item.toolbar, addedNodes: [], removedNodes: [branchButton] }]);
+  h.flush();
+  assert.deepEqual(item.toolbar.children.map(child => child.id).slice(1), ['cgpt-helper-ask-sidebar', 'cgpt-helper-ask-branch'],
+    'a branch button removed on its own is restored');
   h.window.getSelection = () => selection;
   h.listeners.selectionchange();
   item.toolbar.children.at(-1).listeners.click({ preventDefault() {}, stopPropagation() {} });

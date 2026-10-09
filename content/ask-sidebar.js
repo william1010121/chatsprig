@@ -62,8 +62,12 @@
   }
 
   function mount(root = document) {
+    // ChatGPT can remove either injected button on its own; restore just the missing one.
     const existing = document.getElementById(BUTTON_ID);
-    if (existing) return;
+    if (existing) {
+      if (existing.parentElement) mountBranch(existing.parentElement, existing.className);
+      return;
+    }
     const candidates = root.matches?.('button') ? [root] : [];
     candidates.push(...(root.querySelectorAll?.('button') || []));
     const floating = toolbar => !toolbar.closest('#root, main, form') && !!toolbar.parentElement &&
@@ -83,12 +87,15 @@
     nativeToolbar = toolbar;
     toolbar.appendChild(createButton(BUTTON_ID, 'Ask in sidebar', ask.className, 'cgptAskInSidebar',
       'Sidebar is not ready. Please refresh this page.'));
+    mountBranch(toolbar, ask.className);
+  }
+
+  function mountBranch(toolbar, className) {
     // Native branches need a saved conversation to branch from.
     // Same match as btw.js session(): custom GPT chats live under /g/<gpt>/c/<id>.
-    if (/\/c\/[a-zA-Z0-9-]+(?:\/|$)/.test(globalThis.location?.pathname || '') && !document.getElementById(BRANCH_BUTTON_ID)) {
-      toolbar.appendChild(createButton(BRANCH_BUTTON_ID, 'Ask in new branch', ask.className, 'cgptAskInBranch',
-        'Branches are not ready. Please refresh this page.'));
-    }
+    if (!/\/c\/[a-zA-Z0-9-]+(?:\/|$)/.test(globalThis.location?.pathname || '') || document.getElementById(BRANCH_BUTTON_ID)) return;
+    toolbar.appendChild(createButton(BRANCH_BUTTON_ID, 'Ask in new branch', className, 'cgptAskInBranch',
+      'Branches are not ready. Please refresh this page.'));
   }
 
   function createButton(id, label, className, action, unavailable) {
