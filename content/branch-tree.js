@@ -85,15 +85,19 @@
     return groups.sort((a, b) => top(a) - top(b)).flat();
   }
   // Plain conversation links for root and every branch below it, indented by depth.
-  // title(id) may return '' when a chat's title is unknown. Cycle-safe.
+  // title(id) may return '' when a chat's title is unknown. A skipped (deleted) branch is
+  // left out, but its surviving branches still appear in its place. Cycle-safe.
   function linkTree(index, root, title = () => '', skip = () => false) {
     const lines = [], seen = new Set();
     const visit = (id, depth) => {
       if (seen.has(id)) return;
       seen.add(id);
-      const url = `https://chatgpt.com/c/${id}`, name = (title(id) || '').replace(/\s+/g, ' ').trim();
-      lines.push(`${'  '.repeat(depth)}- ${name ? `${name} — ${url}` : url}`);
-      for (const { chat } of index.get(id) || []) if (chat && !skip(chat)) visit(chat, depth + 1);
+      const shown = id === root || !skip(id);
+      if (shown) {
+        const url = `https://chatgpt.com/c/${id}`, name = (title(id) || '').replace(/\s+/g, ' ').trim();
+        lines.push(`${'  '.repeat(depth)}- ${name ? `${name} — ${url}` : url}`);
+      }
+      for (const { chat } of index.get(id) || []) if (chat) visit(chat, shown ? depth + 1 : depth);
     };
     visit(root, 0);
     return { text: lines.join('\n'), count: lines.length };
