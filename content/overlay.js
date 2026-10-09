@@ -450,13 +450,15 @@
     if (tip) tip.hidden = true;
   }
 
-  // Drops a live frame from the dock. ChatGPT keeps branch conversations, which
-  // stay reopenable from the Branches list; temporary chats end like Alt+N.
+  // Drops a live frame from the dock. ChatGPT keeps persisted branch conversations,
+  // which stay reopenable from the Branches list; temporary chats end like Alt+N.
   function dismiss(key) {
     const record = frames.get(key);
     if (!record) return;
-    if (record.branch && frameBusy(record) &&
-        !window.confirm(`Close “${record.branch.title}”? Its unsent draft or response in progress will be lost.`)) return;
+    // Until ChatGPT assigns a persisted ID, the branch lives only in this frame.
+    const loss = !record.branch ? '' : !record.reopenable ? 'This branch cannot be reopened yet, so its conversation will be lost.' :
+      frameBusy(record) ? 'Its unsent draft or response in progress will be lost.' : '';
+    if (loss && !window.confirm(`Close “${record.branch.title}”? ${loss}`)) return;
     const current = key === frameKey();
     if (current) { cancelAsk(); cancelFocusPrompt(); }
     window.clearTimeout(record.timer);

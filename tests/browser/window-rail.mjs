@@ -117,6 +117,20 @@ await page.acceptDialog();
 state=await rail();
 assert(state.items.length===1 && state.items[0].key==='chatgpt' && state.items[0].current && state.frames===1,`Confirmed dismiss failed: ${JSON.stringify(state)}`);
 assert(await page.evaluate(()=>qa.routes.length)===routes,'Dismissing re-created or navigated a frame');
+// A branch still on a local ID exists only in its frame, so closing it asks first.
+await page.click('loc=css:button[data-action=close]');
+await page.evaluate(()=>{qa.localBranch=true;});
+await page.fill('#prompt-textarea','/btw 本機分支');
+await page.press('#prompt-textarea','Enter');
+await page.waitForFunction(()=>qa.sends.some(s=>s.text==='本機分支')&&document.querySelector('#prompt-textarea').textContent==='');
+await page.evaluate(()=>{qa.localBranch=false;});
+await page.hover("loc=css:.rail .chat[aria-label='BTW · 本機分支']");
+receipt=await page.click("loc=css:.rail .dismiss[aria-label='Close BTW · 本機分支']");
+const localDialog=receipt?.dialog || (await page.info()).dialog;
+assert(/cannot be reopened/.test(JSON.stringify(localDialog)),`Non-reopenable branch was dismissed without warning: ${JSON.stringify(localDialog)}`);
+await page.acceptDialog();
+state=await rail();
+assert(state.items.length===1 && state.items[0].key==='chatgpt' && state.frames===1,`Confirmed local-branch dismiss failed: ${JSON.stringify(state)}`);
 // Dismissing the last chat closes the window; opening again starts fresh.
 await page.hover("loc=css:.rail .chat[aria-label='ChatGPT temporary chat']");
 await page.click("loc=css:.rail .dismiss[aria-label='Close ChatGPT temporary chat']");

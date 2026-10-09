@@ -57,7 +57,7 @@
     frameWindow.chrome = {runtime:runtime(id,1,'https://chatgpt.com/'),storage:chrome.storage};
     frameWindow.cgptLoadSettings = window.cgptLoadSettings;
     // Route init mirrors the native /branch -> /c navigation; failed branches return to their source.
-    if(branchId) fakeLocation.pathname = window.qa.failBranch ? `/c/${SOURCE}` : `/c/${branchId}`;
+    if(branchId) fakeLocation.pathname = window.qa.failBranch ? `/c/${SOURCE}` : window.qa.localBranch ? `/c/local-chatgpt:${branchId}` : `/c/${branchId}`;
     frameWindow.sessionStorage.setItem(`chatsprig:btw-source:${branchId}`,SOURCE);
     const helper = sources['content/frame-helper.js'].replace("window.parent.postMessage({ source: MESSAGE_SOURCE, action: 'btwBranchReady', branchId,", "window.parent.qaBranchReport(window, { source: MESSAGE_SOURCE, action: 'btwBranchReady', branchId,");
     frameWindow.Function('location',helper)(fakeLocation);
