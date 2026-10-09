@@ -1,6 +1,6 @@
 # ChatSprig submission notes
 
-- Version: 2.6.0 (local release; not submitted)
+- Version: 2.6.1 (upload ZIP: dist/chatsprig-2.6.1.zip; not yet submitted)
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
@@ -9,6 +9,12 @@
 ## Single purpose
 
 Provide an in-page workspace for temporary ChatGPT and Gemini conversations, with keyboard access, explicit selection-to-sidebar actions, focused layout, and LaTeX copying for mathematical responses.
+
+## Changes in 2.6.1
+
+- Send `/btw` questions and Ask in sidebar selections sooner: the filled draft is verified as soon as it appears and the send button is checked every 20 ms instead of after fixed 100 ms waits.
+- Skip composer lookups in `/btw` scroll, resize and key handlers when the command menu is not involved, reducing layout work while ChatGPT streams.
+- Follow ChatGPT's dark theme in the Branches bar and the Clean chip. ChatGPT now marks its theme with `data-theme` instead of a `dark` class, and no longer exposes the surface variables the bar used, so the bar matches the page background directly.
 
 ## Changes in 2.6.0
 
@@ -68,7 +74,7 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: 2.6.0 is prepared locally. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
+- Status: 2.6.1 is prepared locally (includes the unsubmitted 2.6.0 changes). Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.

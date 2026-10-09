@@ -196,7 +196,8 @@
           return { message: 'Could not fill sidebar. Please paste the selection manually.' };
         }
       }
-      await sleep(100);
+      // The insert is usually visible at once; allow a short settle before failing.
+      for (let wait = 0; wait < 200 && normalize(inputText(input)) !== normalize(expected); wait += 20) await sleep(20);
       if (normalize(inputText(input)) !== normalize(expected)) {
         return { message: 'Could not verify the draft. Please check it before sending.' };
       }
@@ -214,7 +215,8 @@
           button.click();
           return { filled: true, sent: true, message: branchId ? 'BTW question sent.' : 'Selection sent.' };
         }
-        await sleep(100);
+        // ChatGPT enables the send button shortly after the editor state syncs.
+        await sleep(20);
       }
       return { filled: true, message: 'Selection filled · please send when ready.' };
     } catch {

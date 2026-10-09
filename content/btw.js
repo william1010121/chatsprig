@@ -32,6 +32,18 @@
     if (/Extension context invalidated/i.test(error?.message || '')) stop();
     else extensionActive();
   }
+  // ChatGPT marks its theme with data-theme (older builds: a .dark class); neither follows the OS setting.
+  const darkTheme = () => {
+    const html = document.documentElement, theme = html.dataset.theme;
+    return theme ? theme === 'dark' : html.classList.contains('dark') || (!html.classList.contains('light') && matchMedia('(prefers-color-scheme: dark)').matches);
+  };
+  function applyTheme() {
+    if (!host) return;
+    host.style.colorScheme = darkTheme() ? 'dark' : 'light';
+    // ChatGPT no longer exposes its surface variables here, so match the page background.
+    const surface = getComputedStyle(document.body).backgroundColor;
+    host.style.setProperty('--cgpt-btw-surface', /^rgba\(.*,\s*0\)$|^transparent$/.test(surface) ? 'Canvas' : surface);
+  }
   const session = () => /\/c\/([a-zA-Z0-9-]+)(?:\/|$)/.exec(location.pathname)?.[1] || null;
   const visible = el => !el.closest('[hidden], [aria-hidden="true"]') && el.getClientRects().length > 0;
   const getInput = () => extensionActive() ? [...document.querySelectorAll(INPUT)].filter(visible).at(-1) : null;
@@ -126,14 +138,14 @@
       shadow.innerHTML = `<style>
         :host{font:12px ui-sans-serif,system-ui,-apple-system,sans-serif;color:inherit}
         :host{container-type:inline-size}
-        .bar{display:flex;align-items:center;gap:10px;padding:5px 6px 8px;border-radius:16px;background:var(--bg-primary,var(--main-surface-primary,Canvas))}
+        .bar{display:flex;align-items:center;gap:10px;padding:5px 6px 8px;border-radius:16px;background:var(--bg-primary,var(--main-surface-primary,var(--cgpt-btw-surface,Canvas)))}
         .toggle,.hint{flex-shrink:0}.recent{margin-left:auto;display:flex;justify-content:flex-end;gap:6px;min-width:0;overflow:hidden;flex:0 1 auto}
         .recent-branch{min-width:0;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 150px;text-align:left;border-color:#8883;background:#8881}
         @container (max-width:650px){.recent-branch:nth-child(n+3){display:none}}
         @container (max-width:480px){.hint{display:none}.recent-branch:nth-child(n+2){display:none}}
         button{font:inherit;color:inherit;cursor:pointer;border:1px solid #8886;background:transparent;border-radius:16px;padding:5px 11px}
         button:hover{background:#8882}button:focus-visible{outline:2px solid #6da88b;outline-offset:2px}
-        .hint{opacity:.55;font-size:11px}.list{position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;max-height:260px;overflow:auto;background:Canvas;color:CanvasText;box-shadow:0 8px 28px #0003;border:1px solid #8885;border-radius:14px;padding:6px}
+        .hint{opacity:.55;font-size:11px}.list{position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;max-height:260px;overflow:auto;background:var(--cgpt-btw-surface,Canvas);color:CanvasText;box-shadow:0 8px 28px #0003;border:1px solid #8885;border-radius:14px;padding:6px}
         .list[hidden]{display:none}.branch{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;border:0;border-radius:8px;text-align:left;padding:10px 12px;overflow-wrap:anywhere}.branch span{opacity:.6;flex-shrink:0}
         p{margin:10px;opacity:.65;line-height:1.5}[role=status]:empty{display:none}[role=status]{padding:0 8px 7px;line-height:1.5}
       </style><div class="bar"><button type="button" class="toggle" aria-expanded="false" aria-controls="btw-list">Branches · 0</button><span class="hint">/btw + question</span><div class="recent" role="group" aria-label="Recent branches"></div></div><div class="list" id="btw-list" aria-label="Session branches" hidden></div><div role="status" aria-live="polite"></div>`;
@@ -158,7 +170,7 @@
         catch (error) { storageError(error); }
       });
     }
-    host.style.colorScheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    if (!host.style.colorScheme) applyTheme();
     if (mountedForm !== form || !host.isConnected) { form.prepend(host); mountedForm = form; }
     const next = session();
     if (next !== currentSession) {
@@ -343,8 +355,9 @@
     syncCommand(input);
   }
   window.addEventListener('keydown', event => {
+    if (event.isComposing || event.keyCode === 229 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
     const input = getInput();
-    if (event.isComposing || event.keyCode === 229 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || !input?.contains(event.target)) return;
+    if (!input?.contains(event.target)) return;
     if (event.key === 'Escape' && commandButton?.isConnected) {
       dismissedQuery = readText(input); removeCommand(); return;
     }
@@ -441,17 +454,18 @@
   }, { capture: true, signal: lifetime.signal });
   // ChatGPT's global Escape handler can consume keydown and blur the editor.
   window.addEventListener('keyup', event => {
+    if (event.key !== 'Escape') return;
     const input = getInput();
-    if (event.key === 'Escape' && slashQuery(input)) {
+    if (slashQuery(input)) {
       dismissedQuery = readText(input); removeCommand();
     }
   }, { capture: true, signal: lifetime.signal });
-  window.addEventListener('resize', () => positionFallback(getInput()), { signal: lifetime.signal });
-  document.addEventListener('scroll', () => positionFallback(getInput()), { capture: true, signal: lifetime.signal });
-  themeObserver = new MutationObserver(() => {
-    if (host) host.style.colorScheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-  });
-  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  // Streaming auto-scroll fires constantly; skip the layout-reading input lookup unless the fallback menu is open.
+  window.addEventListener('resize', () => { if (fallbackMenu) positionFallback(getInput()); }, { signal: lifetime.signal });
+  document.addEventListener('scroll', () => { if (fallbackMenu) positionFallback(getInput()); }, { capture: true, signal: lifetime.signal });
+  themeObserver = new MutationObserver(applyTheme);
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme, { signal: lifetime.signal });
   window.addEventListener('popstate', mount, { signal: lifetime.signal });
   mount(); render();
 })();

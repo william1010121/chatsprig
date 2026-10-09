@@ -311,6 +311,12 @@
     } catch (error) { storageError(error); }
   }
 
+  // ChatGPT marks its theme with data-theme (older builds: a .dark class); neither follows the OS setting.
+  const darkTheme = () => {
+    const html = document.documentElement, theme = html.dataset.theme;
+    return theme ? theme === 'dark' : html.classList.contains('dark') || (!html.classList.contains('light') && matchMedia('(prefers-color-scheme: dark)').matches);
+  };
+
   // The Clean chip floats over the hovered row so React's row markup stays untouched.
   function mountChip() {
     host = document.createElement('div');
@@ -344,7 +350,7 @@
     chip.textContent = `Clean · ${count}`;
     chip.title = `Delete ${count} branch chat${count === 1 ? '' : 's'} under this conversation, including branches of branches`;
     chip.setAttribute('aria-label', chip.title);
-    host.style.colorScheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    host.style.colorScheme = darkTheme() ? 'dark' : 'light';
     host.style.display = 'block';
     // Sit just left of the native trailing buttons (options, pin).
     const rect = row.getBoundingClientRect();
