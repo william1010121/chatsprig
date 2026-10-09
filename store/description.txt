@@ -9,6 +9,7 @@ WHAT YOU CAN DO
 • Select message text on ChatGPT or Gemini and send it to that service’s sidebar.
 • Choose whether Ask in sidebar sends immediately or leaves a draft for editing.
 • On ChatGPT, send /btw followed by a question to create a native branch in the floating window; reopen it from the branch count above the prompt.
+• Select ChatGPT message text and choose Ask in new branch to ask about it in a new native branch.
 • See ChatGPT branch chats nested under their source conversation in the history sidebar, and remove all branches below a chat with Clean after confirming.
 • Switch between open ChatGPT, Gemini, and BTW chats from a dock beside the floating window without reloading them; hover an item and click × to close it.
 • Use Compact view on ChatGPT for more comfortable long-form reading, with live sliders for line, paragraph, and list spacing and side margins, plus an option to keep paragraph breaks.
@@ -20,7 +21,7 @@ WHAT YOU CAN DO
 • Use a floating launcher and customize overlay, focus, sidebar, and launcher behavior in Settings.
 
 YOU CHOOSE THE CONTEXT
-ChatSprig does not automatically read or summarize the surrounding webpage. Temporary chats receive text you type, paste, or explicitly select with Ask in sidebar. Sending /btw explicitly creates a ChatGPT branch containing the current conversation context. Selecting text alone never sends it.
+ChatSprig does not automatically read or summarize the surrounding webpage. Temporary chats receive text you type, paste, or explicitly select with Ask in sidebar. Sending /btw or choosing Ask in new branch explicitly creates a ChatGPT branch containing the current conversation context. Selecting text alone never sends it.
 
 ACCOUNT AND COMPATIBILITY
 ChatSprig embeds the official ChatGPT and Gemini websites. Sign in to each service in a normal tab first if needed. The providers’ account, plan, usage, and temporary-chat retention rules apply. Chrome internal pages, the Chrome Web Store, some PDF viewers, and other restricted pages cannot display the overlay. Browser restrictions or service changes may affect loading and sign-in.

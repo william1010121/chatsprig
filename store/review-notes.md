@@ -1,6 +1,6 @@
 # ChatSprig submission notes
 
-- Version: 2.6.2 (upload ZIP: dist/chatsprig-2.6.2.zip; pending review, resubmitted October 9, 2026)
+- Version: 2.6.3 (upload ZIP: dist/chatsprig-2.6.3.zip; pending review, submitted October 9, 2026)
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
@@ -9,6 +9,11 @@
 ## Single purpose
 
 Provide an in-page workspace for temporary ChatGPT and Gemini conversations, with keyboard access, explicit selection-to-sidebar actions, focused layout, and LaTeX copying for mathematical responses.
+
+## Changes in 2.6.3
+
+- Restore Ask in sidebar for ChatGPT interfaces in other languages and in Work mode. ChatGPT's selection button is localized (for example `問問 ChatGPT` in Traditional Chinese) and reads `Add to chat` in Work mode, so the toolbar was not recognized. Known labels are matched, and an unrecognized label is accepted only for a fixed toolbar shown beside a message selection.
+- Add **Ask in new branch** to the ChatGPT selection toolbar in saved conversations. It creates a `/btw` native branch with the selected text as the question, following the Ask in sidebar Auto-send setting. The source conversation receives nothing.
 
 ## Changes in 2.6.2
 
@@ -66,7 +71,7 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 3. Open a normal website and click the ChatGPT launcher or press Alt+K / Option+K. Confirm the ChatGPT overlay appears.
 4. Press Alt+G / Option+G and confirm Gemini opens only after temporary mode is active. Switch between services and verify each draft is preserved.
 5. Press Alt+N / Option+N to create a fresh temporary chat in the current service.
-6. On the main ChatGPT or Gemini website, select message text and choose Ask in sidebar. Verify only that selection is transferred to the matching service.
+6. On the main ChatGPT or Gemini website, select message text and choose Ask in sidebar. Verify only that selection is transferred to the matching service. In a saved ChatGPT conversation, select text and choose Ask in new branch; verify a branch opens in the floating window with the selection and the source conversation receives no message.
 7. On ChatGPT, test Compact view (including the Paragraph spacing and List item spacing sliders), optional saved instructions in Chat mode, and LaTeX copying. In a response containing an interactive form, adjust Side margins and confirm ordinary text changes width while the UI card and native composer keep their widths.
 8. In Settings, add a skill, then type `//` in a ChatGPT or Gemini prompt. Select it with Enter and confirm the draft is filled without sending. Test `//system-prompt` after setting prompt text.
 9. Disable cookie rewriting to stop future ChatGPT cookie changes. Browser restrictions and provider availability may still limit cross-site login.
@@ -79,7 +84,7 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: 2.6.2 pending review; resubmitted October 9, 2026 after cancelling its first review to set the homepage URL to https://chatsprig.driseam.com/. It replaces the 2.6.1 submission, whose review is cancelled. Version 2.3.2 is published. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
+- Status: 2.6.3 pending review; submitted October 9, 2026 with the description adding Ask in new branch and homepage https://chatsprig.driseam.com/. It replaces the 2.6.2 submission (October 9, 2026, homepage https://chatsprig.driseam.com/), whose review is cancelled. Version 2.3.2 is published. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.

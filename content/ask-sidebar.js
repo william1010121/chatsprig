@@ -4,7 +4,11 @@
   if (window.top !== window.self || globalThis.cgptSidebarSelectionMounted) return;
   globalThis.cgptSidebarSelectionMounted = true;
   const BUTTON_ID = 'cgpt-helper-ask-sidebar';
+  const BRANCH_BUTTON_ID = 'cgpt-helper-ask-branch';
   const MESSAGE = '[data-message-author-role], [data-chatgpt-search-unit-key]';
+  // ChatGPT's own selection button (selectedTextOverlay.addToChat / addToCodex) is
+  // localized and reads "Add to chat" in Work mode.
+  const NATIVE_ASK = /^(Ask ChatGPT|Add to chat|詢問 ChatGPT|询问 ChatGPT|尋問 ChatGPT|問問 ChatGPT|問 ChatGPT|向 ChatGPT 提问|加入聊天|加到對話|添加到对话|ChatGPT に聞く|チャットに追加|ChatGPT에게 물어보세요|채팅에 추가)$/;
   let selectedText = '';
   let selectedRanges;
   let rangeBoundaries;
@@ -45,30 +49,63 @@
       [endpointMath(range.startContainer), endpointMath(range.endContainer)]).filter(Boolean) || [])];
   }
 
+  // Unknown locales: a fixed toolbar outside the app that ChatGPT shows right at a
+  // live message selection.
+  function selectionToolbar(toolbar) {
+    if (!selectedText.trim() || toolbar.closest('[role="menu"], [role="dialog"], [role="listbox"]') ||
+        toolbar.querySelector?.('input, textarea, [contenteditable="true"]')) return false;
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
+    const target = selection.getRangeAt(0).getBoundingClientRect?.();
+    const box = toolbar.getBoundingClientRect?.();
+    return !!target && !!box && box.bottom >= target.top - 120 && box.top <= target.bottom + 120;
+  }
+
   function mount(root = document) {
+    // ChatGPT can remove either injected button on its own; restore just the missing one.
     const existing = document.getElementById(BUTTON_ID);
-    if (existing) return;
+    if (existing) {
+      if (existing.parentElement) mountBranch(existing.parentElement, existing.className);
+      return;
+    }
     const candidates = root.matches?.('button') ? [root] : [];
     candidates.push(...(root.querySelectorAll?.('button') || []));
-    const ask = candidates.find((button) =>
-      /^(Ask ChatGPT|詢問 ChatGPT|询问 ChatGPT|尋問 ChatGPT)$/.test(button.textContent.trim()));
+    const floating = toolbar => !toolbar.closest('#root, main, form') && !!toolbar.parentElement &&
+      getComputedStyle(toolbar.parentElement).position === 'fixed';
+    let ask = candidates.find((button) => NATIVE_ASK.test(button.textContent.trim()));
+    if (!ask) {
+      const fallback = candidates.find(button => button.parentElement && floating(button.parentElement));
+      if (fallback && selectionToolbar(fallback.parentElement)) ask = fallback.parentElement.querySelector('button');
+    }
     if (!ask) return;
     const toolbar = ask.parentElement;
     if (!toolbar) return;
     // Older toolbars pair Ask with Share; newer ones float Ask alone outside the app root.
     const shared = [...toolbar.querySelectorAll('button')].some((button) =>
       /Share highlighted|Share selection|分享選取|分享所選|分享反白|分享选中|分享所选/.test(button.textContent));
-    const floating = () => !toolbar.closest('#root, main, form') && !!toolbar.parentElement &&
-      getComputedStyle(toolbar.parentElement).position === 'fixed';
-    if (!shared && !floating()) return;
+    if (!shared && !floating(toolbar)) return;
     nativeToolbar = toolbar;
+    toolbar.appendChild(createButton(BUTTON_ID, 'Ask in sidebar', ask.className, 'cgptAskInSidebar',
+      'Sidebar is not ready. Please refresh this page.'));
+    mountBranch(toolbar, ask.className);
+  }
+
+  function mountBranch(toolbar, className) {
+    // Native branches need a saved conversation to branch from.
+    // Same match as btw.js session(): custom GPT chats live under /g/<gpt>/c/<id>.
+    if (!/\/c\/[a-zA-Z0-9-]+(?:\/|$)/.test(globalThis.location?.pathname || '') || document.getElementById(BRANCH_BUTTON_ID)) return;
+    toolbar.appendChild(createButton(BRANCH_BUTTON_ID, 'Ask in new branch', className, 'cgptAskInBranch',
+      'Branches are not ready. Please refresh this page.'));
+  }
+
+  function createButton(id, label, className, action, unavailable) {
     const button = document.createElement('button');
-    button.id = BUTTON_ID;
+    button.id = id;
     button.type = 'button';
-    button.className = ask.className;
-    button.textContent = 'Ask in sidebar';
+    button.className = className;
+    button.textContent = label;
     button.style.whiteSpace = 'nowrap';
-    button.setAttribute('aria-label', 'Ask in sidebar');
+    button.setAttribute('aria-label', label);
     // Preserve selection on pointer activation; keyboard activation uses the saved selection.
     button.addEventListener('pointerdown', (event) => event.preventDefault());
     button.addEventListener('mousedown', (event) => event.preventDefault());
@@ -90,8 +127,8 @@
       }) ? selectedRanges : selectedRanges && [];
       const text = globalThis.cgptGetSelectedLatex?.(stableRanges) ?? selectedText;
       if (!text.trim()) return;
-      if (typeof globalThis.cgptAskInSidebar !== 'function') {
-        button.title = 'Sidebar is not ready. Please refresh this page.';
+      if (typeof globalThis[action] !== 'function') {
+        button.title = unavailable;
         return;
       }
       dismissingSelection = true;
@@ -118,10 +155,10 @@
         } finally {
           dismissingSelection = false;
         }
-        globalThis.cgptAskInSidebar(text);
+        globalThis[action](text);
       });
     });
-    toolbar.appendChild(button);
+    return button;
   }
 
   document.addEventListener('selectionchange', captureSelection);

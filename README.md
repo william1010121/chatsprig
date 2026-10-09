@@ -7,7 +7,7 @@
     <a href="https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe"><img src="https://img.shields.io/badge/Chrome_Web_Store-Install-174D3B?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Install ChatSprig from the Chrome Web Store"></a>
     <a href="https://github.com/william1010121/chatsprig/stargazers"><img src="https://img.shields.io/badge/%E2%98%85-Star%20on%20GitHub-174D3B?style=for-the-badge" alt="Star on GitHub"></a>
     <img src="https://img.shields.io/badge/Chrome-Manifest%20V3-FAF7EF?style=for-the-badge&logo=googlechrome&logoColor=174D3B" alt="Chrome Manifest V3">
-    <img src="https://img.shields.io/badge/version-2.6.2-174D3B?style=for-the-badge" alt="Version 2.6.2">
+    <img src="https://img.shields.io/badge/version-2.6.3-174D3B?style=for-the-badge" alt="Version 2.6.3">
   </p>
   <p><a href="#meet-chatsprig">Features</a> · <a href="#get-started">Get started</a> · <a href="#keyboard-shortcuts">Shortcuts</a> · <a href="#privacy--permissions">Privacy</a></p>
 </div>
@@ -34,7 +34,7 @@ ChatSprig opens the ChatGPT and Gemini websites directly. On either service’s 
 
 ## Get started
 
-**Chrome Web Store:** [install ChatSprig](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The local extension is version 2.6.2, with ChatGPT `/btw` branches, a nested branch sidebar with Clean, Gemini support, Ask in sidebar, Compact view controls, custom prompts, and skill completion.
+**Chrome Web Store:** [install ChatSprig](https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe). The local extension is version 2.6.3, with ChatGPT `/btw` branches, Ask in new branch, a nested branch sidebar with Clean, Gemini support, Ask in sidebar, Compact view controls, custom prompts, and skill completion.
 
 ### Demo
 
@@ -105,7 +105,9 @@ BTW always attempts to send its explicit question once, independently of the Ask
 
 On Gemini, select message text and click **Ask in sidebar** beside the selection to open the Gemini overlay. Only plain selected text is passed.
 
-On ChatGPT, select message text, then click **Ask in sidebar** beside the native **Ask ChatGPT / Share highlighted** actions. The existing floating chat opens without reloading or starting a new conversation.
+On ChatGPT, select message text, then click **Ask in sidebar** beside the native **Ask ChatGPT** action (shown as **Add to chat** in Work mode and localized in other interface languages, such as **問問 ChatGPT**). The existing floating chat opens without reloading or starting a new conversation.
+
+In a saved ChatGPT conversation, **Ask in new branch** sits beside it. It works like `/btw` with the selection as the question: a native branch of the conversation opens in the floating window and appears in **Branches · N**. The source conversation receives nothing. Unlike `/btw`, it follows the Auto-send setting below.
 
 - **Auto-send** is available in Settings → Ask in sidebar and is on by default. Turn it off to fill the prompt and add your own question before sending. The preference is shared by both services and syncs across tabs.
 - **Append system prompt** is the document-plus icon beside Compact view at the bottom of the model picker. It is shown only when ChatGPT **Chat** mode is explicitly identified; Work, Gemini and unrecognized modes never append instructions. The switch is off by default. Edit the text and **Repeat every k user messages** in Settings → System prompt: `0` (default) means first message only, `1` means every message, and `3` means messages 1, 4, 7, 10… The current conversation branch determines the count; AI responses and regenerations do not count. Changing k recalculates from the start, and a new conversation starts over. Manual sends and Ask in sidebar follow the same rule. Unknown or incomplete history skips appending. Existing conversations without a Chat/Work switch are identified when their model menu is opened; verified mode is remembered per conversation in that tab across reloads. Without positive mode evidence, appending stays disabled. Empty text adds nothing; the instructions are ordinary message text, not an API system role.
