@@ -119,7 +119,7 @@ test('linkTree lists plain links for a chat and every branch below it, indented 
   assert.equal(count, 5);
   assert.equal(linkTree(index, 'lonely').text, '- https://chatgpt.com/c/lonely');
   // A partly failed Clean keeps a deleted branch's records so a surviving child stays reachable.
-  assert.equal(linkTree(index, 'root', () => '', id => id === 'child').text, [
+  assert.equal(linkTree(index, 'root', () => '', id => id === 'child' || id === 'gone').text, [
     '- https://chatgpt.com/c/root',
     '  - https://chatgpt.com/c/grandchild',
     '  - https://chatgpt.com/c/native',
