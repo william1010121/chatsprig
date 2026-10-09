@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChatSprig — Ask here. Stay here.</title>
+<meta name="description" content="ChatSprig opens temporary ChatGPT and Gemini chats in a floating window on the page you are reading — plus /btw branches, Ask in sidebar, skills, Compact view and LaTeX copy.">
+<meta property="og:title" content="ChatSprig — Ask here. Stay here.">
+<meta property="og:description" content="Temporary ChatGPT & Gemini chats, right on your page.">
+<meta property="og:image" content="media/poster.jpg">
+<link rel="icon" href="assets/icon128.png">
+<link rel="stylesheet" href="demos/demo.css">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="mark" href="#top"><img src="assets/logo.png" alt="">ChatSprig</a>
+  <span class="sp"></span>
+  <a class="lnk" href="#overlay">Features</a>
+  <a class="lnk" href="#shortcuts">Shortcuts</a>
+  <a class="lnk" href="#privacy">Privacy</a>
+  <a class="lnk" href="https://github.com/william1010121/chatsprig">GitHub</a>
+  <a class="btn solid sm" href="https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe">Add to Chrome</a>
+</header>
+
+<section class="hero" id="top">
+  <img class="logo" src="assets/logo.png" alt="ChatSprig">
+  <div><span class="eyebrow">Chrome extension · Manifest V3 · v2.6.2</span></div>
+  <h1>Ask here. Stay here.</h1>
+  <p class="lead">Temporary ChatGPT and Gemini chats in a floating window on the page you're reading — with side-question branches, selection-to-chat, prompt skills and a calmer reading view.</p>
+  <div class="ctas">
+    <a class="btn solid" href="https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M12 8.5h8.3M8.97 13.75 4.8 6.6M15.03 13.75 10.9 20.9"/></svg>
+      Add to Chrome — it's free</a>
+    <a class="btn ghost" href="#film">▶ Watch the 3-minute tour</a>
+  </div>
+</section>
+
+<section class="film" id="film">
+  <div class="vid"><video src="media/chatsprig-demo.mp4" poster="media/poster.jpg" controls playsinline preload="metadata"></video></div>
+  <div class="note">Every feature in one tour. All animations on this page are reconstructions — no real conversations or account data. Music: Komiku — “Chill Out Theme” (<a href="https://commons.wikimedia.org/wiki/File:Komiku_-_02_-_Chill_Out_Theme.ogg">CC0</a>).</div>
+  <div class="stats">
+    <div><b>14</b>features, all shown below</div>
+    <div><b>2</b>services: ChatGPT &amp; Gemini</div>
+    <div><b>0</b>developer servers or analytics</div>
+    <div><b><kbd data-key="alt">Alt</kbd> + <kbd>K</kbd></b>is all you need to start</div>
+  </div>
+</section>
+
+<div class="layout">
+  <nav class="nav" aria-label="Manual">
+    <div class="grp g-overlay"><span class="gt">Chat anywhere</span>
+      <a href="#overlay">Floating chat</a><a href="#gemini">Gemini &amp; switching</a><a href="#newchat">Fresh temporary chat</a><a href="#launcher">Floating launcher</a><a href="#dock">Open-chats dock</a></div>
+    <div class="grp g-flow"><span class="gt">Conversation flow</span>
+      <a href="#ask">Ask in sidebar</a><a href="#explain">Explain with Gemini</a><a href="#btw">/btw branches</a><a href="#branches">Branches · N</a><a href="#tree">Sidebar tree &amp; Clean</a></div>
+    <div class="grp g-write"><span class="gt">Write faster</span>
+      <a href="#skills">Skills on //</a><a href="#sysprompt">System prompt</a></div>
+    <div class="grp g-read"><span class="gt">Read better</span>
+      <a href="#compact">Compact view</a><a href="#latex">Copy LaTeX</a></div>
+    <div class="grp g-ref"><span class="gt">Reference</span>
+      <a href="#shortcuts">Keyboard shortcuts</a><a href="#settings">Settings</a><a href="#install">Install</a><a href="#privacy">Privacy &amp; permissions</a><a href="#limits">Know the limits</a></div>
+  </nav>
+
+  <main>
+    <!-- ───────── PART 1 ───────── -->
+    <div class="part g-overlay"><div class="k">Part 1 · Chat anywhere</div><h2>Chat anywhere.</h2><p>ChatGPT and Gemini in a floating window, on the page you're already reading.</p></div>
+
+    <section class="sec g-overlay" id="overlay">
+      <div class="hd"><span class="num">01</span><h3>Chat on any page</h3><span class="chips"><span class="chip">ChatGPT</span><span class="chip">Temporary</span></span></div>
+      <p class="desc">Reading an article and a question comes up? Press <kbd data-key="alt">Alt</kbd> + <kbd>K</kbd>. A centered, resizable ChatGPT window opens over the page in a <b>temporary chat</b> with the prompt already focused. Ask, read the answer, press <kbd data-key="alt">Alt</kbd> + <kbd>K</kbd> again — and you're back where you were.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="overlay"></div></div>
+      <details class="more"><summary>Good to know</summary><ul>
+        <li>Choose the overlay size, whether the toggle shortcut closes or just focuses the window, and whether the embedded ChatGPT sidebar is hidden.</li>
+        <li>The window header has buttons to focus the prompt, start a fresh chat and close.</li>
+        <li>Sign in at chatgpt.com in a normal tab first. Your plan, usage limits and ChatGPT's temporary-chat retention rules still apply.</li>
+      </ul></details>
+    </section>
+
+    <section class="sec g-overlay" id="gemini">
+      <div class="hd"><span class="num">02</span><h3>ChatGPT and Gemini, side by side</h3><span class="chips"><span class="chip">Gemini</span></span></div>
+      <p class="desc"><kbd data-key="alt">Alt</kbd> + <kbd>G</kbd> opens Gemini; <kbd data-key="alt">Alt</kbd> + <kbd>K</kbd> switches back to ChatGPT. Only one service is visible at a time, but <b>both stay loaded</b> — switching or closing keeps each conversation and unsent draft exactly where you left it.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="gemini"></div></div>
+      <details class="more"><summary>Good to know</summary><ul>
+        <li>Gemini loads <code>/app</code>, turns on Temporary chat and verifies that mode before showing the input. If it can't, you get a retry message — never a silent regular chat.</li>
+        <li><b>Default Gemini model</b> in Settings picks Flash-Lite, Flash or Pro for new temporary chats. If the model can't be verified, initialization reports an error instead of falling back.</li>
+        <li>Google cookies are never rewritten. Reloading the host page restores the open service with a new temporary chat.</li>
+      </ul></details>
+    </section>
+
+    <section class="sec g-overlay" id="newchat">
+      <div class="hd"><span class="num">03</span><h3>A fresh temporary chat, instantly</h3></div>
+      <p class="desc"><kbd data-key="alt">Alt</kbd> + <kbd>N</kbd> replaces only the <b>current</b> service with a brand-new temporary chat — even while the window is closed. Before either service has been used it defaults to ChatGPT.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="newchat"></div></div>
+    </section>
+
+    <section class="sec g-overlay" id="launcher">
+      <div class="hd"><span class="num">04</span><h3>A launcher that stays out of the way</h3><span class="chips"><span class="chip">Mouse-friendly</span></span></div>
+      <p class="desc">Two overlapping buttons sit in the corner you choose. Hover or keyboard-focus them and they fan out into <b>ChatGPT</b> and <b>Gemini</b>. Hide the launcher entirely, or only on ChatGPT's own website.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="launcher"></div></div>
+    </section>
+
+    <section class="sec g-overlay" id="dock">
+      <div class="hd"><span class="num">05</span><h3>Every open chat, one click away</h3></div>
+      <p class="desc">When more than one chat is alive, a dock appears beside the window: ChatGPT, Gemini and each <b>/btw branch</b> you've opened, colour-coded. Click to switch — every conversation and unsent draft is kept.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="dock"></div></div>
+    </section>
+
+    <!-- ───────── PART 2 ───────── -->
+    <div class="part g-flow"><div class="k">Part 2 · Conversation flow</div><h2>Conversation flow.</h2><p>Pass text between chats, explore side questions without derailing the main thread, and keep the branches tidy.</p></div>
+
+    <section class="sec g-flow" id="ask">
+      <div class="hd"><span class="num">06</span><h3>Ask in sidebar</h3><span class="chips"><span class="chip">ChatGPT</span><span class="chip">Gemini</span></span></div>
+      <p class="desc">On chatgpt.com or gemini.google.com, select any part of an answer and choose <b>Ask in sidebar</b>. Just that selection goes to the floating chat of the same service — no reload, no new conversation, and nothing else from the page.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="ask"></div></div>
+      <details class="more"><summary>Good to know</summary><ul>
+        <li><b>Auto-send</b> (Settings → Ask in sidebar) is on by default. Turn it off to drop the selection into the prompt and add your own question first.</li>
+        <li>Existing drafts are preserved; the selection is appended after a blank line. If the floating chat is still generating, the text waits as a draft.</li>
+        <li>With Copy LaTeX enabled, selected formulas arrive as LaTeX source.</li>
+        <li>Selecting text alone never sends anything.</li>
+      </ul></details>
+    </section>
+
+    <section class="sec g-flow" id="explain">
+      <div class="hd"><span class="num">07</span><h3>Explain with Gemini</h3><span class="chips"><span class="chip">Second opinion</span></span></div>
+      <p class="desc">Each ChatGPT answer gets a Gemini sparkle in its action row. Click it and the <b>complete response</b> — taken from ChatGPT's own Copy action — goes to the Gemini floating chat, prefixed with <code>explain this to me</code>. Your clipboard is left untouched.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="explain"></div></div>
+      <details class="more"><summary>Good to know</summary><ul>
+        <li>Edit the prefix in Settings → Explain with Gemini. An empty prefix sends just the response.</li>
+        <li>Follows the shared Auto-send preference and preserves existing Gemini drafts.</li>
+      </ul></details>
+    </section>
+
+    <section class="sec g-flow" id="btw">
+      <div class="hd"><span class="num">08</span><h3>/btw — side questions in a branch</h3><span class="chips"><span class="chip">ChatGPT</span><span class="chip">Native branches</span></span></div>
+      <p class="desc">In a saved conversation, type <code>/btw your question</code> and press <kbd>Enter</kbd>. ChatSprig uses ChatGPT's <b>native branch</b> to copy the conversation so far, then asks your question in a floating window. The main thread receives nothing — the detour stays a detour.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="btw"></div></div>
+      <details class="more"><summary>Good to know</summary><ul>
+        <li>Typing <code>/b</code>, <code>/bt</code> or <code>/btw</code> highlights the suggestion; <kbd>Enter</kbd> completes it without sending. You can also pick <b>/btw</b> from ChatGPT's own <code>/</code> menu.</li>
+        <li>Chat and Work branches keep their source mode. <kbd>Shift</kbd> + <kbd>Enter</kbd> still inserts a newline.</li>
+        <li>Wait for the current response to finish before branching. If anything fails, your draft stays put.</li>
+        <li>Branches use ChatGPT's normal retention unless the source URL is explicitly temporary.</li>
+      </ul></details>
+    </section>
+
+    <section class="sec g-flow" id="branches">
+      <div class="hd"><span class="num">09</span><h3>Branches, always within reach</h3></div>
+      <p class="desc">Hover <b>Branches · N</b> above the prompt to list every branch of this conversation; click to pin the list open. The three most recent ready branches sit on the right for one-click access. Titles and URLs are remembered locally, so after a reload a branch <b>reopens without being created or asked again</b>.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="branches"></div></div>
+    </section>
+
+    <section class="sec g-flow" id="tree">
+      <div class="hd"><span class="num">10</span><h3>A branch tree in your sidebar</h3><span class="chips"><span class="chip">New</span></span></div>
+      <p class="desc">In ChatGPT's history sidebar, branch chats nest under the conversation they came from — branches of branches go one level deeper, each with a guide line. It works for <code>/btw</code> branches and for ChatGPT's own <b>Branch · …</b> chats, even ones made in another browser. Hover a source and click <b>Clean · N</b> to delete every branch below it.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="tree"></div></div>
+      <details class="more"><summary>Good to know</summary><ul>
+        <li>A group sits where its topmost member appears, within the same native list (Pinned, Recents or a project).</li>
+        <li>Native branches are matched once to the loaded conversation with the same source title that shares the most copied messages; the match is remembered.</li>
+        <li>Clean asks for confirmation, uses ChatGPT's normal delete, keeps the source, and returns you to the source if you were viewing a deleted branch.</li>
+      </ul></details>
+    </section>
+
+    <!-- ───────── PART 3 ───────── -->
+    <div class="part g-write"><div class="k">Part 3 · Write faster</div><h2>Write faster.</h2><p>Reusable prompts and standing instructions that arrive exactly when you need them.</p></div>
+
+    <section class="sec g-write" id="skills">
+      <div class="hd"><span class="num">11</span><h3>Skills: prompts on <code>//</code></h3><span class="chips"><span class="chip">ChatGPT</span><span class="chip">Gemini</span></span></div>
+      <p class="desc">Save text templates in <b>Settings → Skills</b>. Type <code>//</code> at the start of a line or after a space in any ChatGPT or Gemini prompt, keep typing to filter, then <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Enter</kbd>. The skill is inserted as <b>editable text — never sent</b>. <kbd>Esc</kbd> closes the menu.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="skills"></div></div>
+      <details class="more"><summary>Good to know</summary><ul>
+        <li>Custom skills stay in this browser (<code>chrome.storage.local</code>).</li>
+        <li><code>//system-prompt</code> inserts your current Settings → System prompt text. If none is set, it opens Settings and keeps your draft.</li>
+      </ul></details>
+    </section>
+
+    <section class="sec g-write" id="sysprompt">
+      <div class="hd"><span class="num">12</span><h3>Your system prompt, on a schedule</h3><span class="chips"><span class="chip">ChatGPT Chat mode</span></span></div>
+      <p class="desc">The document-plus switch at the bottom of ChatGPT's model picker turns on <b>Append system prompt</b>. Write the text in Settings and choose <b>Repeat every k user messages</b>: <code>0</code> = first message only, <code>1</code> = every message, <code>3</code> = messages 1, 4, 7, 10…</p>
+      <div class="demo-wrap"><div class="demo" data-scene="sysprompt"></div></div>
+      <details class="more"><summary>Good to know</summary><ul>
+        <li>Shown only when ChatGPT <b>Chat</b> mode is positively identified. Work, Gemini and unknown modes never get instructions appended.</li>
+        <li>The count follows the current conversation branch; AI responses and regenerations don't count. Unknown history skips appending.</li>
+        <li>Manual sends and Ask in sidebar follow the same rule. The text is ordinary message text, not an API system role.</li>
+      </ul></details>
+    </section>
+
+    <!-- ───────── PART 4 ───────── -->
+    <div class="part g-read"><div class="k">Part 4 · Read better</div><h2>Read better.</h2><p>A calmer layout for long answers, and math you can actually reuse.</p></div>
+
+    <section class="sec g-read" id="compact">
+      <div class="hd"><span class="num">13</span><h3>Compact view for long reads</h3><span class="chips"><span class="chip">ChatGPT</span><span class="chip">Live sliders</span></span></div>
+      <p class="desc">Toggle <b>Compact view</b> at the bottom of ChatGPT's model picker. The gear opens live sliders — line spacing (1.2–2.4), paragraph spacing (0–24px), list item spacing (0–12px) and symmetric side margins (0–25%). Release a slider and the choice syncs across tabs, including inside the floating window.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="compact"></div></div>
+      <details class="more"><summary>Good to know</summary><ul>
+        <li>Defaults: 1.65 line height, 8px paragraphs, 3px list items, 12% margins. <b>Reset</b> restores them.</li>
+        <li><b>Join adjacent text paragraphs</b> (Settings → Compact view) is on by default; turn it off to keep paragraph breaks.</li>
+        <li>Intelligent UI cards keep their native width and typography. Turning Compact view off restores ChatGPT's layout.</li>
+      </ul></details>
+    </section>
+
+    <section class="sec g-read" id="latex">
+      <div class="hd"><span class="num">14</span><h3>Copy math as LaTeX</h3><span class="chips"><span class="chip">ChatGPT</span></span></div>
+      <p class="desc">Copy any answer that contains math and you get <b>clean LaTeX source</b> — inline <code>\( … \)</code> and display <code>\[ … \]</code> — instead of the scrambled glyphs a normal copy produces. Ready for Overleaf, Notion or your notes.</p>
+      <div class="demo-wrap"><div class="demo" data-scene="latex"></div></div>
+    </section>
+
+    <!-- ───────── REFERENCE ───────── -->
+    <div class="part g-ref"><div class="k">Reference</div><h2>The details.</h2><p>Shortcuts, settings, installation and exactly what the extension can access.</p></div>
+
+    <section class="sec g-ref" id="shortcuts">
+      <div class="hd"><h3>Keyboard shortcuts</h3></div>
+      <table>
+        <tr><th>Action</th><th>Windows / Linux</th><th>macOS</th></tr>
+        <tr><td>Open / switch to ChatGPT</td><td><kbd>Alt</kbd> + <kbd>K</kbd></td><td><kbd>Option</kbd> + <kbd>K</kbd></td></tr>
+        <tr><td>Open / switch to Gemini</td><td><kbd>Alt</kbd> + <kbd>G</kbd></td><td><kbd>Option</kbd> + <kbd>G</kbd></td></tr>
+        <tr><td>New temporary chat in the current service</td><td><kbd>Alt</kbd> + <kbd>N</kbd></td><td><kbd>Option</kbd> + <kbd>N</kbd></td></tr>
+        <tr><td>Skill menu in a prompt</td><td colspan="2"><code>//</code> then type to filter · <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> · <kbd>Esc</kbd></td></tr>
+        <tr><td>Side question in a branch</td><td colspan="2"><code>/btw your question</code> + <kbd>Enter</kbd></td></tr>
+        <tr><td>Open settings</td><td colspan="2">Click the ChatSprig toolbar icon</td></tr>
+      </table>
+      <p class="desc" style="margin:16px 0 0;font-size:15px">Remap browser commands at <code>chrome://extensions/shortcuts</code>. The fixed page shortcuts keep working as a fallback — even inside the embedded prompt.</p>
+    </section>
+
+    <section class="sec g-ref" id="settings">
+      <div class="hd"><h3>Settings that sync with Chrome</h3></div>
+      <p class="desc">Click the toolbar icon. Preferences sync through Chrome Sync; skills and branch records stay local to this browser.</p>
+      <div class="shotbox"><img src="media/settings.png" alt="The real ChatSprig settings page" loading="lazy"><span class="hint">Scroll — this is the real settings page</span></div>
+      <div class="grid2">
+        <div class="tile"><b>Chat overlay</b><span>Size, focus on open, hide embedded sidebar, toggle behaviour.</span></div>
+        <div class="tile"><b>Floating launcher</b><span>Corner, visibility, hide on ChatGPT.</span></div>
+        <div class="tile"><b>Ask in sidebar</b><span>Auto-send or leave a draft.</span></div>
+        <div class="tile"><b>Explain with Gemini</b><span>Custom prefix for the sparkle action.</span></div>
+        <div class="tile"><b>Skills &amp; System prompt</b><span>Templates, instructions and the repeat interval k.</span></div>
+        <div class="tile"><b>Compact view &amp; Copy math</b><span>Paragraph joining, LaTeX copy, Gemini default model.</span></div>
+      </div>
+    </section>
+
+    <section class="sec g-ref" id="install">
+      <div class="hd"><h3>Install</h3></div>
+      <div class="grid2" style="margin-top:6px">
+        <div class="tile"><b>Chrome Web Store</b><span>The easiest way — <a href="https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe">add ChatSprig to Chrome</a> and press <kbd data-key="alt">Alt</kbd> + <kbd>K</kbd> on any page.</span></div>
+        <div class="tile"><b>From source</b><span>Clone the <a href="https://github.com/william1010121/chatsprig">repository</a>, open <code>chrome://extensions</code>, enable Developer mode, then <b>Load unpacked</b>. Plain JavaScript, no build step.</span></div>
+      </div>
+    </section>
+
+    <section class="sec g-ref" id="privacy">
+      <div class="hd"><h3>Privacy &amp; permissions</h3></div>
+      <p class="desc"><b>No developer-operated analytics, advertising or conversation backend.</b> Messages go straight to OpenAI or Google. ChatSprig never reads or summarizes the page around you — chats only receive what you type, paste or explicitly select.</p>
+      <table>
+        <tr><th>Access</th><th>Why</th></tr>
+        <tr><td>Web-page content scripts</td><td>Launcher, shortcuts and the overlay. On ChatGPT: prompt focus, embedded sidebar hiding, LaTeX copy.</td></tr>
+        <tr><td>Storage</td><td>Synced preferences; local skills and BTW branch metadata.</td></tr>
+        <tr><td>ChatGPT cookies</td><td>Cross-site sign-in inside the overlay, when cookie rewriting is enabled.</td></tr>
+        <tr><td>Declarative network rules</td><td>Remove frame-blocking headers from ChatGPT and Gemini subframes only.</td></tr>
+      </table>
+      <div class="callout"><b>Cross-site sign-in compatibility</b> is on by default: eligible ChatGPT cookies are rewritten to <code>SameSite=None; Secure</code> so the overlay stays signed in. This relaxes SameSite-based CSRF protection. Turning it off stops future rewrites but doesn't restore cookies already changed. Google cookies are never rewritten.</div>
+    </section>
+
+    <section class="sec g-ref" id="limits">
+      <div class="hd"><h3>Know the limits</h3></div>
+      <ul class="desc" style="margin:6px 0 0;padding-left:20px">
+        <li>Chrome internal pages, the Web Store, some PDF viewers and restricted pages can't host the overlay — a failed shortcut shows a <code>!</code> badge.</li>
+        <li>The embedded frame blocks pop-ups and top-level navigation, so some sign-in flows need a normal tab.</li>
+        <li>“Temporary” follows each provider's own retention rules; it doesn't mean no data is kept.</li>
+        <li>Gemini supports the overlay and Ask in sidebar; LaTeX copy, Compact view and /btw are ChatGPT-only.</li>
+      </ul>
+    </section>
+
+    <div class="cta-end">
+      <img src="assets/logo.png" alt="" width="72" height="72" style="border-radius:18px">
+      <h2>Ask here. Stay here.</h2>
+      <p>Free, open source, and no account of ours to sign up for.</p>
+      <div class="ctas" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <a class="btn solid" href="https://chromewebstore.google.com/detail/chatsprig-%E2%80%94-temporary-cha/ecgdiaglcgfknjopckmjjcokanaldobe">Add to Chrome</a>
+        <a class="btn ghost" href="https://github.com/william1010121/chatsprig">★ Star on GitHub</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<footer>ChatSprig is an independent project, not affiliated with OpenAI or Google. ChatGPT and Gemini are trademarks of their respective owners.</footer>
+<div class="jump"><button id="up" title="Back to top">↑</button><button id="down" title="Jump to bottom">↓</button></div>
+
+<script src="demos/engine.js"></script>
+<script src="demos/scenes.js"></script>
+<script src="site.js"></script>
+</body>
+</html>
