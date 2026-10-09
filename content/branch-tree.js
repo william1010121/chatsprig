@@ -440,7 +440,7 @@
     if (current && deleted.has(current)) location.assign(`/c/${rootId}`);
   }
 
-  // Copy links: titles come from the sidebar, then /btw questions, then ChatGPT's API
+  // Copy links: titles come from the sidebar, the page title, /btw questions, then ChatGPT's API
   // within a short budget so the click's clipboard permission has not expired.
   globalThis.cgptBranchLinks = async rootId => {
     if (!extensionActive() || !ID.test(rootId || '')) return null;
@@ -449,12 +449,14 @@
       window.setTimeout(() => reject(new Error('timeout')), Math.max(0, deadline - Date.now())))]);
     await load();
     // Native branches that just appeared are matched to their source in the background;
-    // include them when that pass finishes in time.
-    if (inferring) { try { await inTime(inferPass); await load(); } catch {} }
+    // include them when matching finishes in time. A reload can start a follow-up pass.
+    try { while (inferring) { await inTime(inferPass); await load(); } } catch {}
     const titles = new Map();
     for (const chat of sidebarChats()) if (chat.title && !titles.has(chat.id)) titles.set(chat.id, chat.title);
     const current = /\/c\/([a-zA-Z0-9-]+)(?:\/|$)/.exec(location.pathname)?.[1];
     if (current && !titles.has(current) && document.title && document.title !== 'ChatGPT') titles.set(current, document.title.replace(/\s*[|·-]\s*ChatGPT$/, ''));
+    // A /btw branch's question is what ChatSprig shows for it; prefer it to an API title.
+    for (const record of [...index.values()].flat()) if (record.chat && record.title && !titles.has(record.chat)) titles.set(record.chat, record.title);
     const { chats } = descendants(index, rootId);
     const missing = [rootId, ...chats].filter(chat => !titles.has(chat) && !deleted.has(chat));
     await Promise.all(missing.slice(0, 20).map(async chat => {
@@ -463,8 +465,7 @@
         if (data?.title) titles.set(chat, data.title);
       } catch {}
     }));
-    const question = new Map([...index.values()].flat().filter(record => record.chat && record.title).map(record => [record.chat, record.title]));
-    return linkTree(index, rootId, chat => titles.get(chat) || question.get(chat) || '', chat => deleted.has(chat));
+    return linkTree(index, rootId, chat => titles.get(chat) || '', chat => deleted.has(chat));
   };
 
   chrome.storage.onChanged.addListener((changes, area) => {

@@ -29,6 +29,7 @@ for (let i = 0; i < N; i++) {
   if (i % 300 === 0) console.log(`frame ${i}/${N}  ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 }
 ff.stdin.end();
-await new Promise((r) => ff.on("close", r));
+const code = await new Promise((r) => ff.on("close", r));
 b.close();
+if (code !== 0) { console.error(`ffmpeg exited with ${code}; ${out} is missing or incomplete`); process.exit(1); }
 console.log("done", out, duration.toFixed(1) + "s");

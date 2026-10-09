@@ -129,7 +129,8 @@
     };
     fit();
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) api.play();
-    else api.seek(0.6);
+    // Reduced motion: show a still frame and offer Play, not Pause.
+    else { api.seek(0.6); opts.onState && opts.onState(false); }
     return api;
   }
 
