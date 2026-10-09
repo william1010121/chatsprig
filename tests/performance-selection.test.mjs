@@ -480,6 +480,15 @@ test('Ask in new branch appears in saved conversations and hands the selection t
   await Promise.resolve();
   assert.equal(branched, 'explain this line');
 
+  let gptWrapper;
+  const gpt = harness('ask-sidebar.js', [], { location: { pathname: '/g/g-abc-tutor/c/abc-123' }, getComputedStyle: fixedStyle(() => gptWrapper) });
+  const gptItem = floatingToolbar('Ask ChatGPT');
+  gptWrapper = gptItem.wrapper;
+  gpt.body.appendChild(gptWrapper);
+  gpt.mutate([{ target: gpt.body, addedNodes: [gptWrapper] }]);
+  gpt.flush();
+  assert.equal(gptItem.toolbar.children.at(-1).id, 'cgpt-helper-ask-branch', 'custom GPT conversations can branch');
+
   let homeWrapper;
   const home = harness('ask-sidebar.js', [], { location: { pathname: '/' }, getComputedStyle: fixedStyle(() => homeWrapper) });
   const homeItem = floatingToolbar('Ask ChatGPT');

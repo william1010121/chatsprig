@@ -419,8 +419,9 @@
   // Ask in new branch: the selection toolbar's counterpart to /btw.
   globalThis.cgptAskInBranch = async text => {
     if (!extensionActive() || pending || typeof text !== 'string' || !text.trim()) return;
-    let autoSend = true;
-    try { autoSend = (await globalThis.cgptLoadSettings?.())?.autoSendAskInSidebar !== false; } catch {}
+    // Match Ask in sidebar; if settings cannot be read, leave a draft rather than send.
+    let autoSend = false;
+    try { autoSend = (await globalThis.cgptLoadSettings?.())?.autoSendAskInSidebar === true; } catch {}
     if (!extensionActive() || pending) return;
     await createBranch(null, null, text.trim(), autoSend);
   };

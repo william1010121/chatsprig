@@ -84,7 +84,8 @@
     toolbar.appendChild(createButton(BUTTON_ID, 'Ask in sidebar', ask.className, 'cgptAskInSidebar',
       'Sidebar is not ready. Please refresh this page.'));
     // Native branches need a saved conversation to branch from.
-    if (/^\/c\/[a-zA-Z0-9-]+/.test(globalThis.location?.pathname || '') && !document.getElementById(BRANCH_BUTTON_ID)) {
+    // Same match as btw.js session(): custom GPT chats live under /g/<gpt>/c/<id>.
+    if (/\/c\/[a-zA-Z0-9-]+(?:\/|$)/.test(globalThis.location?.pathname || '') && !document.getElementById(BRANCH_BUTTON_ID)) {
       toolbar.appendChild(createButton(BRANCH_BUTTON_ID, 'Ask in new branch', ask.className, 'cgptAskInBranch',
         'Branches are not ready. Please refresh this page.'));
     }
