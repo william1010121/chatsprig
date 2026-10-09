@@ -102,7 +102,7 @@ function overlayHarness() {
     chrome: { runtime: { sendMessage: async () => ({ message: 'filled' }), onMessage: { addListener(fn) { runtimeListener = fn; } } },
       storage: { onChanged: { addListener() {} } } },
     document: { documentElement: { appendChild() {} }, createElement(tag) {
-      if (tag === 'div') return host;
+      if (tag === 'div' && !host.mounted) { host.mounted = true; return host; }
       if (tag !== 'iframe') return { ...node(), dataset: {}, appendChild() {} };
       const frame = { ...node(), sent: [], focusCount: 0, focus() { this.focusCount++; },
         addEventListener(type, listener) { if (type === 'load') this.load = listener; }, remove() {},

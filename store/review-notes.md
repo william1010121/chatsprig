@@ -1,6 +1,6 @@
 # ChatSprig submission notes
 
-- Version: 2.6.1 (upload ZIP: dist/chatsprig-2.6.1.zip; not yet submitted)
+- Version: 2.6.2 (upload ZIP: dist/chatsprig-2.6.2.zip; not yet submitted)
 - Category: Productivity (Tools if the dashboard uses a subcategory)
 - Language: English
 - Source repository: https://github.com/william1010121/chatsprig (public)
@@ -9,6 +9,10 @@
 ## Single purpose
 
 Provide an in-page workspace for temporary ChatGPT and Gemini conversations, with keyboard access, explicit selection-to-sidebar actions, focused layout, and LaTeX copying for mathematical responses.
+
+## Changes in 2.6.2
+
+- Hovering or focusing an item in the open-chats dock shows a × badge that closes that chat. It only drops the live frame: branch conversations stay in ChatGPT and in the Branches list. A branch with an unsent draft or a response in progress asks first. Closing the visible chat switches to the most recently used one; closing the last chat closes the window.
 
 ## Changes in 2.6.1
 
@@ -70,11 +74,12 @@ Do not make a blanket assertion that the extension accesses no user data. It loc
 
 11. In ChatGPT's history sidebar, verify branch chats (from step 10 or ChatGPT's own branch action) are indented under their source. Hover the source row, choose **Clean · N**, confirm, and verify only the branch chats below it are deleted and the source remains. Cancel the confirmation once to verify nothing is deleted.
 12. In the floating window, click a link in a response and verify it opens in a new tab.
+13. With ChatGPT and Gemini open, hover an item in the dock beside the window and click its × badge. Verify only that chat closes and the window switches to the remaining one.
 
 ## Dashboard record
 
 - Item ID: `ecgdiaglcgfknjopckmjjcokanaldobe`
-- Status: 2.6.1 is prepared locally (includes the unsubmitted 2.6.0 changes). Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
+- Status: 2.6.2 is prepared locally; it replaces the 2.6.1 submission (October 9, 2026), whose review is cancelled. Version 2.3.2 is published. Last recorded submission: Version 2.3.2 pending review; submitted September 28, 2026 after cancelling the 2.3.1 review (ChatGPT layout change broke skills, Compact view, Ask in sidebar, and system prompts on chatgpt.com). Automatic publishing after approval is enabled. Version 2.2.0 is published.
 - Publisher contact email verified; submission completed.
 - Dashboard notice: broad host permissions may require an in-depth review.
 - Distribution: free of charge, public, all regions.

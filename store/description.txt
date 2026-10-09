@@ -10,7 +10,7 @@ WHAT YOU CAN DO
 • Choose whether Ask in sidebar sends immediately or leaves a draft for editing.
 • On ChatGPT, send /btw followed by a question to create a native branch in the floating window; reopen it from the branch count above the prompt.
 • See ChatGPT branch chats nested under their source conversation in the history sidebar, and remove all branches below a chat with Clean after confirming.
-• Switch between open ChatGPT, Gemini, and BTW chats from a dock beside the floating window without reloading them.
+• Switch between open ChatGPT, Gemini, and BTW chats from a dock beside the floating window without reloading them; hover an item and click × to close it.
 • Use Compact view on ChatGPT for more comfortable long-form reading, with live sliders for line, paragraph, and list spacing and side margins, plus an option to keep paragraph breaks.
 • Optionally prepend saved instructions in verified Chat mode and repeat them at a chosen interval.
 • Save text templates as skills, then type // in a ChatGPT or Gemini prompt to insert one as an editable draft.

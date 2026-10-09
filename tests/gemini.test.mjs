@@ -28,7 +28,7 @@ function overlayHarness(session = {}) {
     cgptLoadSettings: async () => DEFAULT_SETTINGS,
     chrome: { runtime: { onMessage: { addListener(fn) { listener = fn; } }, sendMessage: async (message) => { sent.push(message); return { message: 'filled' }; } }, storage: { onChanged: { addListener() {} } } },
     document: { documentElement: { appendChild() {} }, createElement(tag) {
-      if (tag === 'div') return host;
+      if (tag === 'div' && !host.mounted) { host.mounted = true; return host; }
       if (tag !== 'iframe') return { ...node(), dataset: {}, appendChild() {} };
       const frame = { ...node(), focusCount: 0, focus() { this.focusCount++; }, addEventListener() {},
         remove() { this.removed = true; }, contentWindow: { postMessage() {} } };
