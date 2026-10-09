@@ -20,7 +20,7 @@ await page.reload();await page.waitForFunction(()=>window.qaReady);
 const assert = (condition, message) => { if(!condition) throw new Error(message); };
 const rail = () => page.evaluate(()=>{
   const shadow=document.querySelector('#cgpt-helper-overlay').shadowRoot;
-  return {items:[...shadow.querySelectorAll('.rail button')].map(b=>({key:b.dataset.key,label:b.getAttribute('aria-label'),text:b.textContent,current:b.getAttribute('aria-current')==='true'})),
+  return {items:[...shadow.querySelectorAll('.rail .chat')].map(b=>({key:b.dataset.key,label:b.getAttribute('aria-label'),text:b.textContent,current:b.getAttribute('aria-current')==='true'})),
     visible:[...shadow.querySelectorAll('iframe')].filter(f=>!f.hidden).map(f=>f.name),frames:shadow.querySelectorAll('iframe').length,
     title:shadow.querySelector('.title').textContent};
 });
@@ -91,6 +91,40 @@ await page.press("loc=css:.rail button[aria-label='Gemini temporary chat']",'Ent
 const focused=await page.evaluate(()=>{const s=document.querySelector('#cgpt-helper-overlay').shadowRoot;return {label:s.activeElement?.getAttribute('aria-label'),current:s.querySelector(".rail button[aria-current='true']").getAttribute('aria-label')};});
 assert(focused.current==='Gemini temporary chat','Enter did not switch chats');
 assert(focused.label==='Gemini temporary chat',`Keyboard focus was lost: ${JSON.stringify(focused)}`);
+// Hovering an item reveals its dismiss badge; dismissing drops only that frame.
+const badge=()=>page.evaluate(()=>getComputedStyle(document.querySelector('#cgpt-helper-overlay').shadowRoot.querySelector(".rail .dismiss[aria-label='Close BTW · 研究方向的問題']")).pointerEvents);
+assert(await badge()==='none','Dismiss badge is clickable without hover');
+await page.hover("loc=css:.rail .chat[aria-label='BTW · 研究方向的問題']");
+await page.waitForTimeout(200);
+assert(await badge()==='auto','Hover did not reveal the dismiss badge');
+await page.click("loc=css:.rail .dismiss[aria-label='Close BTW · 研究方向的問題']");
+state=await rail();
+assert(state.items.map(i=>i.key).join()==='chatgpt,gemini,'+state.items[2].key && state.items[2].label==='BTW · 另一個支線' && state.frames===3 && state.items[1].current,`Dismissing an idle branch failed: ${JSON.stringify(state)}`);
+// Dismissing the current chat switches to the most recently used one.
+await page.hover("loc=css:.rail .chat[aria-label='Gemini temporary chat']");
+await page.click("loc=css:.rail .dismiss[aria-label='Close Gemini temporary chat']");
+state=await rail();
+assert(state.items.length===2 && state.items[1].current && state.title.includes('BTW') && state.frames===2,`Dismissing the current chat did not switch: ${JSON.stringify(state)}`);
+// A branch with an unsent draft asks first; cancelling keeps it.
+await page.hover("loc=css:.rail .chat[aria-label='BTW · 另一個支線']");
+let receipt=await page.click("loc=css:.rail .dismiss[aria-label='Close BTW · 另一個支線']");
+assert(receipt?.dialog || (await page.info()).dialog,'Busy branch was dismissed without confirmation');
+await page.dismissDialog();
+assert((await rail()).frames===2,'Cancelling the confirmation dropped the branch');
+await page.hover("loc=css:.rail .chat[aria-label='BTW · 另一個支線']");
+receipt=await page.click("loc=css:.rail .dismiss[aria-label='Close BTW · 另一個支線']");
+await page.acceptDialog();
+state=await rail();
+assert(state.items.length===1 && state.items[0].key==='chatgpt' && state.items[0].current && state.frames===1,`Confirmed dismiss failed: ${JSON.stringify(state)}`);
+assert(await page.evaluate(()=>qa.routes.length)===routes,'Dismissing re-created or navigated a frame');
+// Dismissing the last chat closes the window; opening again starts fresh.
+await page.hover("loc=css:.rail .chat[aria-label='ChatGPT temporary chat']");
+await page.click("loc=css:.rail .dismiss[aria-label='Close ChatGPT temporary chat']");
+state=await rail();
+assert(state.items.length===0 && state.frames===0 && await page.evaluate(()=>document.querySelector('#cgpt-helper-overlay').getAttribute('data-open'))==='false','Dismissing the last chat did not close the window');
+await message({type:'toggleOverlay'});
+state=await rail();
+assert(state.items.length===1 && state.items[0].current && state.frames===1,'Reopening after dismissing every chat failed');
 const results={passed:true,items:state.items};
 console.log(results);
 if (!globalThis.qaSpace) await task.finish({ keep: [] });

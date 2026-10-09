@@ -93,7 +93,7 @@ test('early overlay request waits for settings and creates a sandboxed in-page f
     document: {
       documentElement: { appendChild() {} },
       createElement(tag) {
-        if (tag === 'div') return host;
+        if (tag === 'div' && !host.mounted) { host.mounted = true; return host; }
         if (tag !== 'iframe') return { dataset: {}, setAttribute() {}, appendChild() {} };
         assert.equal(tag, 'iframe');
         return { style: {}, setAttribute(key, value) { this[key] = value; }, addEventListener() {}, remove() {} };

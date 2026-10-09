@@ -207,7 +207,7 @@
           border: 0;
           border-top: 1px solid rgba(255, 255, 255, 0.14);
         }
-        .rail button {
+        .rail .chat {
           position: relative;
           flex: 0 0 auto;
           width: 36px;
@@ -218,11 +218,11 @@
           font-weight: 600;
           transition: background-color 0.15s, color 0.15s, transform 0.15s;
         }
-        .rail button:hover { background: rgba(255, 255, 255, 0.1); color: #ffffff; }
-        .rail button:active { transform: scale(0.94); }
-        .rail button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 1px; }
-        .rail button[aria-current="true"] { background: #ffffff; color: #111827; }
-        .rail button[aria-current="true"]::before {
+        .rail .chat:hover { background: rgba(255, 255, 255, 0.1); color: #ffffff; }
+        .rail .chat:active { transform: scale(0.94); }
+        .rail .chat:focus-visible { outline: 2px solid #93c5fd; outline-offset: 1px; }
+        .rail .chat[aria-current="true"] { background: #ffffff; color: #111827; }
+        .rail .chat[aria-current="true"]::before {
           content: "";
           position: absolute;
           left: -5px;
@@ -232,8 +232,8 @@
           border-radius: 0 3px 3px 0;
           background: #ffffff;
         }
-        .rail button.branch { color: #ffffff; }
-        .rail button.branch > span {
+        .rail .chat.branch { color: #ffffff; }
+        .rail .chat.branch > span {
           width: 24px;
           height: 24px;
           display: grid;
@@ -242,12 +242,32 @@
           background: var(--chip, #6366f1);
           font-size: 12px;
         }
-        .rail button[data-hue="0"] { --chip: #6366f1; }
-        .rail button[data-hue="1"] { --chip: #0ea5e9; }
-        .rail button[data-hue="2"] { --chip: #10b981; }
-        .rail button[data-hue="3"] { --chip: #f59e0b; }
-        .rail button[data-hue="4"] { --chip: #ef4444; }
-        .rail button[data-hue="5"] { --chip: #d946ef; }
+        .rail .chat[data-hue="0"] { --chip: #6366f1; }
+        .rail .chat[data-hue="1"] { --chip: #0ea5e9; }
+        .rail .chat[data-hue="2"] { --chip: #10b981; }
+        .rail .chat[data-hue="3"] { --chip: #f59e0b; }
+        .rail .chat[data-hue="4"] { --chip: #ef4444; }
+        .rail .chat[data-hue="5"] { --chip: #d946ef; }
+        .rail .item { position: relative; flex: 0 0 auto; }
+        /* Hover or focus reveals a badge that drops the chat from the dock. */
+        .rail .dismiss {
+          position: absolute;
+          top: -5px;
+          right: -5px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #4b5563;
+          color: #ffffff;
+          font-size: 11px;
+          box-shadow: 0 0 0 1.5px rgba(17, 24, 39, 0.94);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.12s, background-color 0.12s;
+        }
+        .rail .item:hover .dismiss, .rail .item:focus-within .dismiss { opacity: 1; pointer-events: auto; }
+        .rail .dismiss:hover { background: #ef4444; }
+        .rail .dismiss:focus-visible { opacity: 1; outline: 2px solid #93c5fd; outline-offset: 1px; }
         /* Labels open toward the window, so the viewport edge never clips them. */
         .rail-tip {
           position: fixed;
@@ -317,6 +337,7 @@
       else if (action === 'refresh') refresh();
       else if (action === 'close') hide();
       else if (action === 'switch') switchTo(button.dataset.key);
+      else if (action === 'dismiss') dismiss(button.dataset.key);
     });
     const railButton = event => event.target instanceof Element ? event.target.closest('.rail button') : null;
     shadow.addEventListener('pointerover', event => showRailTip(railButton(event)));
@@ -369,7 +390,7 @@
   function renderRail() {
     const rail = shadow.querySelector('.rail');
     // Rebuilding drops the focused button; hand focus to its replacement.
-    const focusedKey = shadow.activeElement?.closest?.('.rail button')?.dataset.key;
+    const focusedKey = shadow.activeElement?.closest?.('.rail .chat')?.dataset.key;
     hideRailTip();
     rail.replaceChildren();
     let branches = 0;
@@ -377,8 +398,11 @@
     for (const [key, record] of entries) {
       const branch = record.branch;
       if (branch && !branches++ && rail.childElementCount) rail.appendChild(document.createElement('hr'));
+      const item = document.createElement('div');
+      item.className = 'item';
       const button = document.createElement('button');
       button.type = 'button';
+      button.className = 'chat';
       button.dataset.action = 'switch';
       button.dataset.key = key;
       const label = branch ? `BTW · ${branch.title}` : key === 'gemini' ? 'Gemini temporary chat' : 'ChatGPT temporary chat';
@@ -386,7 +410,7 @@
       button.setAttribute('aria-label', label);
       button.setAttribute('aria-current', String(key === frameKey()));
       if (branch) {
-        button.className = 'branch';
+        button.className = 'chat branch';
         button.dataset.hue = String([...branch.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 6);
         const chip = document.createElement('span');
         chip.textContent = [...(branch.title || '').trim()][0] || '↳';
@@ -394,7 +418,17 @@
       } else {
         button.innerHTML = RAIL_ICONS[key] || RAIL_ICONS.chatgpt;
       }
-      rail.appendChild(button);
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'dismiss';
+      close.dataset.action = 'dismiss';
+      close.dataset.key = key;
+      close.dataset.label = `Close ${label}`;
+      close.setAttribute('aria-label', `Close ${label}`);
+      close.textContent = '×';
+      item.appendChild(button);
+      item.appendChild(close);
+      rail.appendChild(item);
       if (key === focusedKey) button.focus({ preventScroll: true });
     }
   }
@@ -414,6 +448,32 @@
   function hideRailTip() {
     const tip = shadow?.querySelector('.rail-tip');
     if (tip) tip.hidden = true;
+  }
+
+  // Drops a live frame from the dock. ChatGPT keeps branch conversations, which
+  // stay reopenable from the Branches list; temporary chats end like Alt+N.
+  function dismiss(key) {
+    const record = frames.get(key);
+    if (!record) return;
+    if (record.branch && frameBusy(record) &&
+        !window.confirm(`Close “${record.branch.title}”? Its unsent draft or response in progress will be lost.`)) return;
+    const current = key === frameKey();
+    if (current) { cancelAsk(); cancelFocusPrompt(); }
+    window.clearTimeout(record.timer);
+    record.frame.remove();
+    frames.delete(key);
+    if (current) {
+      const next = [...frames].sort(([, a], [, b]) => (b.used || 0) - (a.used || 0))[0]?.[0];
+      if (next) {
+        const nextRecord = frames.get(next);
+        if (nextRecord.branch) show({ provider: 'chatgpt', branch: nextRecord.branch, focus: true });
+        else show({ provider: next, focus: true });
+        return;
+      }
+      hide();
+      activeBranch = null; iframe = null;
+    }
+    renderRail();
   }
 
   function switchTo(key) {
