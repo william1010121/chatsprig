@@ -57,6 +57,8 @@ Sign in to ChatGPT in a normal tab first if needed. ChatGPT account, usage, and 
 | --- | --- | --- |
 | Open / switch to ChatGPT | `Alt+K` | `Option+K` |
 | Open / switch to Gemini | `Alt+G` | `Option+G` |
+| Open / switch to Claude | `Alt+C` | `Option+C` |
+| Open / switch to Grok | `Alt+X` | `Option+X` |
 | Start a new temporary chat in the current service | `Alt+N` | `Option+N` |
 | Open settings | Click the extension toolbar icon | Click the extension toolbar icon |
 
@@ -86,6 +88,10 @@ Gemini loads `/app`, activates Temporary chat, and verifies that mode before exp
 In Settings, **Default Gemini model** selects Flash-Lite, Flash, or Pro for new temporary chats. The default leaves Gemini’s current choice unchanged. Switching back to an existing conversation does not change its model. If a requested model is unavailable or cannot be verified, initialization reports an error instead of silently using another model.
 
 Gemini supports the overlay and Ask in sidebar. LaTeX copying and Compact view remain ChatGPT-only.
+
+### Claude and Grok
+
+Press **Alt+C** (Option+C) for Claude or **Alt+X** (Option+X) for Grok, or choose them from the expanded launcher. By default Claude opens an incognito chat (`https://claude.ai/new?incognito`). Grok has no private-chat URL, so the embedded page triggers Grok's own private-chat shortcut after it loads and the title shows “Grok · Private Chat” only once Grok's composer confirms private mode. Turn off **Start Claude and Grok in incognito / private mode** in Settings to open regular chats. **Hide the sidebar inside embedded chats** applies to both. Settings → Chat overlay lets you change either URL within its own site. Sign in at claude.ai or grok.com in a regular tab first; cookie rewriting also covers these sites. Claude and Grok support the overlay, dock switching, sidebar hiding and prompt focus.
 
 On the main ChatGPT page, the Gemini sparkle icon in each response’s action row has the tooltip **explain with gemini**. It takes the complete response from ChatGPT’s native Copy action and passes that exact text to the existing Gemini floating chat. Settings → Explain with Gemini lets you edit the prefix; the default is `explain this to me`. An empty prefix sends only the copied response. The action preserves the user’s clipboard. It follows the shared Auto-send preference and preserves existing drafts; it does not send the surrounding conversation.
 
@@ -128,14 +134,14 @@ The main ChatGPT website keeps its own sidebar. The sidebar preference applies o
 
 ## Privacy & permissions
 
-**No developer-operated analytics, advertising, or conversation backend.** Settings are stored through Chrome Sync. Chat messages go directly to the selected service and are subject to OpenAI’s or Google’s terms and privacy practices.
+**No developer-operated analytics, advertising, or conversation backend.** Settings are stored through Chrome Sync. Chat messages go directly to the selected service and are subject to OpenAI’s, Google’s, Anthropic’s or xAI’s terms and privacy practices.
 
 | Access | Purpose |
 | --- | --- |
 | Web-page content scripts | Display the launcher, handle shortcuts, and host the overlay. On ChatGPT, also focus the prompt, hide the embedded sidebar, nest branch chats in the history sidebar, and convert selected math when copying. |
 | Storage | Sync preferences and save custom skill templates, BTW branch metadata and branch-to-source links locally. |
-| ChatGPT cookies | Support cross-site sign-in when cookie rewriting is enabled. |
-| Declarative network rules with host access | Remove frame-blocking response headers from ChatGPT subframes and X-Frame-Options from Gemini subframes, limited to granted host access. |
+| ChatGPT, Claude and Grok cookies | Support cross-site sign-in when cookie rewriting is enabled. |
+| Declarative network rules with host access | Remove frame-blocking response headers from ChatGPT, Claude and Grok subframes and X-Frame-Options from Gemini subframes, limited to granted host access. |
 
 Tab routing uses tab IDs and messaging without requesting the `tabs` or `activeTab` permission.
 

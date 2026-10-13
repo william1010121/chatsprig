@@ -1,6 +1,9 @@
 import { DEFAULT_SETTINGS, loadSettings } from './shared/defaults.mjs';
 
-const COOKIE_DOMAINS = ['chatgpt.com', 'chat.openai.com'];
+const COOKIE_DOMAINS = ['chatgpt.com', 'chat.openai.com', 'claude.ai', 'grok.com'];
+const OVERLAY_PROVIDERS = ['chatgpt', 'gemini', 'claude', 'grok'];
+const COMMAND_PROVIDERS = { 'toggle-chat': 'chatgpt', 'toggle-gemini': 'gemini', 'toggle-claude': 'claude', 'toggle-grok': 'grok' };
+const overlayProvider = (provider) => OVERLAY_PROVIDERS.includes(provider) ? provider : 'chatgpt';
 
 /* ---------- Overlay routing ---------- */
 
@@ -44,7 +47,7 @@ function refreshOverlay(tab) {
 // A browser command and a page key event can describe the same physical press.
 let lastShortcut = null;
 async function handleShortcut(command, tab, source) {
-  if (!['toggle-chat', 'toggle-gemini', 'refresh-chat'].includes(command)) return false;
+  if (command !== 'refresh-chat' && !COMMAND_PROVIDERS[command]) return false;
   tab = tab || (await getActiveTab());
   if (!tab?.id) return false;
   const now = Date.now();
@@ -53,7 +56,7 @@ async function handleShortcut(command, tab, source) {
       now - lastShortcut.time < 250) return true;
   lastShortcut = { tabId: tab.id, command, source, time: now };
   return command === 'refresh-chat' ? refreshOverlay(tab)
-    : toggleOverlay(tab, command === 'toggle-gemini' ? 'gemini' : 'chatgpt');
+    : toggleOverlay(tab, COMMAND_PROVIDERS[command]);
 }
 
 chrome.commands.onCommand.addListener((command, tab) => {
@@ -182,7 +185,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'toggle') {
-    toggleOverlay(sender.tab, message.provider === 'gemini' ? 'gemini' : 'chatgpt').then((ok) => sendResponse({ ok }));
+    toggleOverlay(sender.tab, overlayProvider(message.provider)).then((ok) => sendResponse({ ok }));
     return true;
   }
 
@@ -200,13 +203,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /* ---------- Cookie rewriting (SameSite=Lax -> None) ----------
- * ChatGPT's session cookies are SameSite=Lax, so they are not sent to a
- * chatgpt.com iframe embedded in another site. Rewriting them to
+ * ChatGPT, Claude and Grok session cookies may be SameSite=Lax, so they are
+ * not sent to an iframe embedded in another site. Rewriting them to
  * SameSite=None; Secure keeps the overlay logged in. This weakens CSRF
- * protection for chatgpt.com; the user opted in and can disable it.
+ * protection for those sites; the user opted in and can disable it.
  */
 
-function isChatgptCookie(cookie) {
+function isEmbeddedChatCookie(cookie) {
   const domain = cookie.domain.replace(/^\./, '');
   return COOKIE_DOMAINS.some((d) => domain === d || domain.endsWith('.' + d));
 }
@@ -258,7 +261,7 @@ async function rewriteAllCookies() {
 
 chrome.cookies.onChanged.addListener(async ({ removed, cookie }) => {
   if (removed) return;
-  if (!isChatgptCookie(cookie)) return;
+  if (!isEmbeddedChatCookie(cookie)) return;
   if (cookie.sameSite === 'no_restriction') return;
 
   const settings = await loadSettings();

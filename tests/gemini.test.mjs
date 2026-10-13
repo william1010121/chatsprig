@@ -82,6 +82,23 @@ test('stale focus callbacks cannot focus another provider and foreign readiness 
   assert.equal(h.created[0].focusCount, 0); assert.equal(h.created[1].focusCount, 0);
 });
 
+test('Gemini stays rendered behind the loading/error cover until temporary readiness is confirmed', async () => {
+  const h = overlayHarness(); await tick();
+  h.send({ type: 'toggleOverlay', provider: 'gemini' });
+  assert.equal(h.status.hidden, false);
+  assert.equal(h.created[0].hidden, false);
+  assert.equal(h.created[0].style.visibility, '');
+  const error = 'Could not enable Gemini temporary chat. Diagnostics: { "signInMarker": false, "storageAccess": false }';
+  h.ready(h.created[0], { data: { source: 'cgpt-helper', action: 'geminiState', ready: false, error } });
+  assert.equal(h.status.hidden, false);
+  assert.equal(h.status.querySelector('span').textContent, error);
+  assert.equal(h.status.querySelector('button').hidden, false);
+  assert.equal(h.created[0].style.visibility, '');
+  h.ready(h.created[0]);
+  assert.equal(h.status.hidden, true);
+  assert.equal(h.created[0].style.visibility, '');
+});
+
 test('Ask explicitly switches to its source provider and carries the provider to background routing', async () => {
   const h = overlayHarness(); await tick();
   h.send({ type: 'toggleOverlay' });
@@ -93,7 +110,7 @@ test('Ask explicitly switches to its source provider and carries the provider to
   assert.equal(h.sent.at(-1).provider, 'chatgpt');
 });
 
-function geminiHarness({ availableAt = 0, enabled = false, missing = false, clickFails = false, draft = '', generating = false, model = 'current', currentModel = 'Pro', availableModels = ['3.5 Flash-Lite', '3.8 Flash', '3.1 Pro'] } = {}) {
+function geminiHarness({ availableAt = 0, enabled = false, missing = false, clickFails = false, signInMarker = false, chatPresent = true, inputMissing = false, hasStorageAccess, draft = '', generating = false, model = 'current', currentModel = 'Pro', availableModels = ['3.5 Flash-Lite', '3.8 Flash', '3.1 Pro'] } = {}) {
   let clock = 0, clicks = 0, sends = 0, listener, mutated;
   const reports = [];
   let menuOpen = false, modelClicks = 0;
@@ -111,22 +128,27 @@ function geminiHarness({ availableAt = 0, enabled = false, missing = false, clic
     set value(text) { this.childNodes = text.split('\n').map(line => ({ nodeName: 'P', childNodes: [line ? { nodeType: 3, nodeValue: line } : { nodeName: 'BR' }] })); }
   }; input.value = draft;
   const sendButton = { disabled: false, getAttribute: () => null, getClientRects: () => [{}], click() { sends++; } };
-  const tempButton = { disabled: false, click() { clicks++; if (!clickFails) enabled = true; } };
+  const tempButton = { disabled: false, getAttribute: () => null, click() { clicks++; if (!clickFails) enabled = true; } };
   const window = { self: {}, top: {}, name: 'gemini_helper_overlay_frame', addEventListener() {},
     parent: { postMessage: (data) => reports.push(data) }, getSelection: () => ({ removeAllRanges() {}, addRange() {} }) };
   const context = vm.createContext({ window, Date: { now: () => clock }, Event: class {}, HTMLTextAreaElement: class {},
-    setTimeout(fn, ms) { clock += ms; queueMicrotask(fn); },
+    setTimeout(fn, ms) {
+      if (ms === 1000) return setTimeout(fn, ms); // Diagnostic deadline uses a cancellable timer.
+      clock += ms; queueMicrotask(fn);
+    }, clearTimeout,
     MutationObserver: class { constructor(fn) { mutated = fn; } observe() {} },
     cgptLoadSettings: async () => ({ ...DEFAULT_SETTINGS, geminiModel: model }),
     chrome: { runtime: { id: 'extension', sendMessage: async () => ({}), onMessage: { addListener(fn) { listener = fn; } } }, storage: { onChanged: { addListener() {} } } },
-    document: { documentElement: { classList: { toggle() {} }, appendChild() {} }, getElementById: () => null, createElement: () => ({}),
+    document: { hasStorageAccess, documentElement: { classList: { toggle() {} }, appendChild() {} }, getElementById: () => null, createElement: () => ({}),
       createRange: () => ({ selectNodeContents() {}, collapse() {} }),
       execCommand(_command, _ui, text) { input.value += text; return true; },
       querySelectorAll() { return menuOpen ? modelOptions : []; },
       querySelector(selector) {
         if (selector === '[data-test-id="bard-mode-menu-button"]') return modelTrigger;
+        if (selector === 'a[href*="accounts.google.com/SignOutOptions"]') return signInMarker ? {} : null;
+        if (selector === 'chat-window') return chatPresent ? {} : null;
         if (selector === 'chat-window.is-temporary-chat') return enabled ? {} : null;
-        if (selector.startsWith('.ql-editor')) return input;
+        if (selector.startsWith('.ql-editor')) return inputMissing ? null : input;
         if (selector.includes('temp-chat-button-container') || selector.includes('Temporary chat')) return !missing && clock >= availableAt ? tempButton : null;
         if (selector.includes('Stop response')) return generating ? {} : null;
         if (selector.includes('button.send-button')) return sendButton;
@@ -162,6 +184,52 @@ test('missing or failing temporary entry fails closed; leaving temporary mode re
   const h = geminiHarness(); await tick(); h.leave();
   assert.equal(h.reports.at(-1).ready, false);
   assert.equal((await h.dispatch({ type: 'sidebarProbe' })).ready, false);
+});
+
+const diagnosticsFrom = (h) => JSON.parse(h.reports.at(-1).error.split('Diagnostics: ')[1]);
+
+test('timeout diagnostics distinguish absent sign-in UI from a failed temporary-mode switch', async () => {
+  const absent = geminiHarness({ missing: true, chatPresent: false, inputMissing: true, hasStorageAccess: async () => false });
+  await tick();
+  assert.deepEqual(diagnosticsFrom(absent), {
+    signInMarker: false, temporaryButton: false, temporaryButtonDisabled: null,
+    chatWindow: false, temporaryMode: false, promptInput: false, storageAccess: false
+  });
+  const failed = geminiHarness({ signInMarker: true, clickFails: true, hasStorageAccess: async () => true });
+  await tick();
+  assert.deepEqual(diagnosticsFrom(failed), {
+    signInMarker: true, temporaryButton: true, temporaryButtonDisabled: false,
+    chatWindow: true, temporaryMode: false, promptInput: true, storageAccess: true
+  });
+  assert.equal(failed.reports.at(-1).ready, false);
+});
+
+test('timeout diagnostics report temporary mode even when its input is missing', async () => {
+  const h = geminiHarness({ enabled: true, inputMissing: true }); await tick();
+  assert.equal(diagnosticsFrom(h).temporaryMode, true);
+  assert.equal(diagnosticsFrom(h).promptInput, false);
+  assert.equal(h.reports.at(-1).ready, false);
+});
+
+test('unsupported and rejected storage-access checks preserve the original timeout error', async () => {
+  for (const [hasStorageAccess, expected] of [
+    [undefined, 'unsupported'],
+    [() => { throw Object.assign(new Error('private details'), { name: 'SecurityError' }); }, 'error:SecurityError'],
+    [async () => { throw new Error('private details'); }, 'error:Error']
+  ]) {
+    const h = geminiHarness({ missing: true, hasStorageAccess }); await tick();
+    assert.match(h.reports.at(-1).error, /Could not enable Gemini temporary chat/);
+    assert.equal(diagnosticsFrom(h).storageAccess, expected);
+    assert.doesNotMatch(h.reports.at(-1).error, /private details/);
+  }
+});
+
+test('a stalled storage-access check cannot suppress the timeout error', async () => {
+  const h = geminiHarness({ missing: true, hasStorageAccess: () => new Promise(() => {}) });
+  await tick();
+  await new Promise(resolve => setTimeout(resolve, 1100));
+  assert.equal(diagnosticsFrom(h).storageAccess, 'timeout');
+  assert.equal(h.reports.at(-1).ready, false);
 });
 
 test('Gemini Quill drafts append with a blank line, auto-send occurs once, and generating/draft/manual modes never send', async () => {

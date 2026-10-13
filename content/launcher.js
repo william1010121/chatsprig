@@ -34,21 +34,28 @@
           visibility: visible !important; opacity: 1 !important; z-index: 2147483646 !important;
           font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         }
+        /* Collapsed, the other services peek out behind ChatGPT; hover fans them out sideways. */
+        :host { --side: 1; --vert: 1; }
+        :host([data-pos$="left"]) { --side: -1; }
+        :host([data-pos^="top"]) { --vert: -1; }
         .wrap { position: absolute; width: 56px; height: 52px; right: 0; bottom: 0; }
-        .wrap:hover, .wrap:focus-within { width: 104px; }
+        .wrap:hover, .wrap:focus-within { width: 212px; }
         button {
           all: unset; box-sizing: border-box; position: absolute; bottom: 0; right: 0;
           width: 44px; height: 44px; border-radius: 50%; background: #111827;
           color: white; display: grid; place-items: center; cursor: pointer;
           box-shadow: 0 4px 14px #0004; transition: transform 160ms ease, background 160ms ease;
+          z-index: calc(4 - var(--i));
+          transform: translate(calc(-12px * var(--side) * min(var(--i), 1)), calc(-8px * var(--vert) * min(var(--i), 1)));
         }
-        button[data-provider="chatgpt"] { z-index: 2; }
-        button[data-provider="gemini"] { background: #36417d; transform: translate(-12px, -8px); }
-        .wrap:hover button[data-provider="gemini"], .wrap:focus-within button[data-provider="gemini"] {
-          transform: translate(-60px, 0);
-        }
+        .wrap:hover button, .wrap:focus-within button { transform: translate(calc(-56px * var(--side) * var(--i)), 0); }
+        button[data-provider="gemini"] { background: #36417d; }
+        button[data-provider="claude"] { background: #a8532f; }
+        button[data-provider="grok"] { background: #000000; }
         button:hover { background: #263448; }
         button[data-provider="gemini"]:hover { background: #4858a0; }
+        button[data-provider="claude"]:hover { background: #c66a43; }
+        button[data-provider="grok"]:hover { background: #2b2b2b; }
         button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 3px; }
         svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         .tip {
@@ -59,29 +66,28 @@
         button:hover .tip, button:focus-visible .tip { opacity: 1; }
         :host([data-pos$="left"]) .wrap { right: auto; left: 0; }
         :host([data-pos$="left"]) button { right: auto; left: 0; }
-        :host([data-pos$="left"]) button[data-provider="gemini"] { transform: translate(12px, -8px); }
-        :host([data-pos$="left"]) .wrap:hover button[data-provider="gemini"],
-        :host([data-pos$="left"]) .wrap:focus-within button[data-provider="gemini"] { transform: translate(60px, 0); }
         :host([data-pos$="left"]) .tip { right: auto; left: 0; }
         :host([data-pos^="top"]) .wrap { top: 0; bottom: auto; }
         :host([data-pos^="top"]) button { top: 0; bottom: auto; }
         :host([data-pos^="top"]) .tip { top: 52px; bottom: auto; }
-        :host([data-pos="top-right"]) button[data-provider="gemini"] { transform: translate(-12px, 8px); }
-        :host([data-pos="top-left"]) button[data-provider="gemini"] { transform: translate(12px, 8px); }
-        :host([data-pos="top-right"]) .wrap:hover button[data-provider="gemini"],
-        :host([data-pos="top-right"]) .wrap:focus-within button[data-provider="gemini"] { transform: translate(-60px, 0); }
-        :host([data-pos="top-left"]) .wrap:hover button[data-provider="gemini"],
-        :host([data-pos="top-left"]) .wrap:focus-within button[data-provider="gemini"] { transform: translate(60px, 0); }
         @media (prefers-reduced-motion: reduce) { button { transition: none; } }
       </style>
       <div class="wrap">
-        <button type="button" data-provider="chatgpt" aria-label="ChatGPT (Alt+K)">
+        <button type="button" data-provider="chatgpt" style="--i: 0" aria-label="ChatGPT (Alt+K)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.2A8 8 0 1 1 21 12z"/></svg>
           <span class="tip">ChatGPT (Alt+K)</span>
         </button>
-        <button type="button" data-provider="gemini" aria-label="Gemini (Alt+G)">
+        <button type="button" data-provider="gemini" style="--i: 1" aria-label="Gemini (Alt+G)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C10.8 8.3 8.3 10.8 2 12c6.3 1.2 8.8 3.7 10 10 1.2-6.3 3.7-8.8 10-10-6.3-1.2-8.8-3.7-10-10Z" fill="currentColor" stroke="none"/></svg>
           <span class="tip">Gemini (Alt+G)</span>
+        </button>
+        <button type="button" data-provider="claude" style="--i: 2" aria-label="Claude (Alt+C)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/></svg>
+          <span class="tip">Claude (Alt+C)</span>
+        </button>
+        <button type="button" data-provider="grok" style="--i: 3" aria-label="Grok (Alt+X)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M5 5l5.5 5.5M13.5 13.5 19 19"/></svg>
+          <span class="tip">Grok (Alt+X)</span>
         </button>
       </div>
     `;

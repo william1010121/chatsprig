@@ -11,6 +11,29 @@
   const FOCUS_DELAYS = [0, 80, 180, 350, 700, 1200, 2000, 3500];
   // Hidden branch iframes are full ChatGPT pages; keep only a few reopenable ones.
   const MAX_IDLE_BRANCH_FRAMES = 2;
+  // Claude opens incognito through its URL; the Grok frame helper switches to private mode after load.
+  const PROVIDERS = {
+    chatgpt: { shortcut: 'Alt+K', title: 'ChatGPT · Temporary Chat', name: 'ChatGPT temporary chat', frameName: FRAME_NAME },
+    gemini: { shortcut: 'Alt+G', title: 'Gemini · Temporary Chat', name: 'Gemini temporary chat', frameName: 'gemini_helper_overlay_frame',
+      origin: 'https://gemini.google.com', url: () => 'https://gemini.google.com/app' },
+    claude: { shortcut: 'Alt+C', title: 'Claude', privateTitle: 'Claude · Incognito Chat', name: 'Claude chat',
+      frameName: 'chatsprig_claude_frame', origin: 'https://claude.ai', setting: 'claudeUrl' },
+    grok: { shortcut: 'Alt+X', title: 'Grok', privateTitle: 'Grok · Private Chat', name: 'Grok chat',
+      frameName: 'chatsprig_grok_frame', origin: 'https://grok.com', setting: 'grokUrl' }
+  };
+  const providerKey = (value) => Object.hasOwn(PROVIDERS, value) ? value : 'chatgpt';
+  // Only the provider's own origin is unframed by rules.json; anything else falls back to the default.
+  function providerUrl(key) {
+    const entry = PROVIDERS[key];
+    if (entry.url) return entry.url();
+    if (!entry.setting) return settings.targetUrl;
+    let url;
+    try { url = new URL(settings[entry.setting]); } catch {}
+    if (url?.origin !== entry.origin) url = new URL(globalThis.CGPT_HELPER_DEFAULTS[entry.setting]);
+    // Only a new Claude chat can start incognito; the parameter is ignored elsewhere.
+    if (key === 'claude' && settings.privateAssistantChats === true && url.pathname === '/new') url.searchParams.set('incognito', '');
+    return url.href.replace(/([?&]incognito)=(?=&|$)/, '$1');
+  }
 
   let host = null;
   let shadow = null;
@@ -25,7 +48,7 @@
   let pendingFocus = null;
 
   function readSessionProvider() {
-    try { return sessionStorage.getItem('cgptHelperProvider') === 'gemini' ? 'gemini' : 'chatgpt'; }
+    try { return providerKey(sessionStorage.getItem('cgptHelperProvider')); }
     catch { return 'chatgpt'; }
   }
 
@@ -54,7 +77,7 @@
   function targetOrigin() {
     if (activeBranch) return 'https://chatgpt.com';
     try {
-      return provider === 'gemini' ? 'https://gemini.google.com' : new URL(settings.targetUrl).origin;
+      return PROVIDERS[provider].origin || new URL(settings.targetUrl).origin;
     } catch {
       return 'https://chatgpt.com';
     }
@@ -359,14 +382,13 @@
 
   function renderProvider() {
     const gemini = provider === 'gemini';
-    const label = gemini ? 'Gemini' : 'ChatGPT';
-    const shortcut = gemini ? 'Alt+G' : 'Alt+K';
-    shadow.querySelector('.window').setAttribute('aria-label', activeBranch ? 'ChatGPT branch' : `${label} temporary chat`);
-    shadow.querySelector('.title').textContent = activeBranch ? `ChatSprig · BTW · ${activeBranch.title}` : `ChatSprig · ${label} · Temporary Chat`;
+    const { shortcut, title, privateTitle, name } = PROVIDERS[provider];
+    const record = frames.get(frameKey());
+    shadow.querySelector('.window').setAttribute('aria-label', activeBranch ? 'ChatGPT branch' : name);
+    shadow.querySelector('.title').textContent = activeBranch ? `ChatSprig · BTW · ${activeBranch.title}` : `ChatSprig · ${record?.private ? privateTitle : title}`;
     shadow.querySelector('[data-action="refresh"]').hidden = !!activeBranch;
     shadow.querySelector('[data-action="close"]').title = `Close: ${shortcut}`;
     shadow.querySelector('.footer span').textContent = activeBranch ? `${shortcut} close · Alt+N temporary chat` : `${shortcut} toggle · Alt+N new chat`;
-    const record = frames.get(frameKey());
     const status = shadow.querySelector('.frame-status');
     status.hidden = (!gemini && !activeBranch) || record?.ready === true;
     if (!status.hidden) {
@@ -375,7 +397,9 @@
     }
     for (const [key, value] of frames) {
       value.frame.hidden = key !== frameKey();
-      value.frame.style.visibility = (key === 'gemini' || key.startsWith('btw:')) && !value.ready ? 'hidden' : '';
+      // Keep Gemini rendered behind the status cover during initialization.
+      // Hiding its frame can stall the temporary-mode transition in Arc.
+      value.frame.style.visibility = key.startsWith('btw:') && !value.ready ? 'hidden' : '';
     }
     askStatus(record?.askStatus || '⌖ focus input');
     renderRail();
@@ -383,7 +407,9 @@
 
   const RAIL_ICONS = {
     chatgpt: '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A2.5 2.5 0 0 1 4 13.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
-    gemini: '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C10.8 8.3 8.3 10.8 2 12c6.3 1.2 8.8 3.7 10 10 1.2-6.3 3.7-8.8 10-10-6.3-1.2-8.8-3.7-10-10Z" fill="currentColor"/></svg>'
+    gemini: '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C10.8 8.3 8.3 10.8 2 12c6.3 1.2 8.8 3.7 10 10 1.2-6.3 3.7-8.8 10-10-6.3-1.2-8.8-3.7-10-10Z" fill="currentColor"/></svg>',
+    claude: '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    grok: '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M5 5l5.5 5.5M13.5 13.5 19 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'
   };
 
   // One button per live frame, so switching never recreates a conversation.
@@ -405,7 +431,7 @@
       button.className = 'chat';
       button.dataset.action = 'switch';
       button.dataset.key = key;
-      const label = branch ? `BTW · ${branch.title}` : key === 'gemini' ? 'Gemini temporary chat' : 'ChatGPT temporary chat';
+      const label = branch ? `BTW · ${branch.title}` : PROVIDERS[key]?.name || key;
       button.dataset.label = label;
       button.setAttribute('aria-label', label);
       button.setAttribute('aria-current', String(key === frameKey()));
@@ -494,12 +520,12 @@
     }
     const frame = document.createElement('iframe');
     const key = frameKey();
-    frame.name = activeBranch ? `cgpt_helper_btw_${activeBranch.id}_${activeBranch.session}` : key === 'gemini' ? 'gemini_helper_overlay_frame' : FRAME_NAME;
+    frame.name = activeBranch ? `cgpt_helper_btw_${activeBranch.id}_${activeBranch.session}` : PROVIDERS[key].frameName;
     // Response links use target=_blank. Popups escape the sandbox so they open as normal tabs.
     frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox');
     frame.allow = 'clipboard-read; clipboard-write; microphone';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.src = activeBranch ? activeBranch.url : key === 'gemini' ? 'https://gemini.google.com/app' : settings.targetUrl;
+    frame.src = activeBranch ? activeBranch.url : providerUrl(key);
     const record = { frame, branch: activeBranch, ready: key !== 'gemini' && !activeBranch, loaded: false, error: '', timer: null };
     frames.set(key, record);
     iframe = frame;
@@ -596,10 +622,13 @@
     focusGeneration++;
     const request = pendingFocus;
     pendingFocus = null;
-    if (request) for (const timer of request.timers) window.clearTimeout(timer);
-    if (iframe) iframe.contentWindow?.postMessage({
-      source: MESSAGE_SOURCE, action: 'cancelFocusPrompt', ...(request ? { requestId: request.id } : {})
-    }, request?.origin || targetOrigin());
+    if (!request) return;
+    for (const timer of request.timers) window.clearTimeout(timer);
+    // Only a frame that was sent focusPrompt has anything to cancel. A frame that has not
+    // loaded yet is still about:blank with this page's origin, so posting to it would fail.
+    if (request.sent) request.frame.contentWindow?.postMessage({
+      source: MESSAGE_SOURCE, action: 'cancelFocusPrompt', requestId: request.id
+    }, request.origin);
   }
 
   function requestFocusPrompt() {
@@ -614,6 +643,7 @@
     const sendFocus = () => {
       if (pendingFocus !== request || frame !== iframe || generation !== focusGeneration || !isOpen() || !frames.get(key)?.ready || !frames.get(key)?.loaded) return;
       frame.focus();
+      request.sent = true;
       frame.contentWindow.postMessage({ source: MESSAGE_SOURCE, action: 'focusPrompt', requestId: request.id }, origin);
     };
     for (const delay of FOCUS_DELAYS) {
@@ -640,6 +670,14 @@
           event.data.requestId !== request.id || event.data.focused !== true) return;
       for (const timer of request.timers) window.clearTimeout(timer);
       pendingFocus = null;
+      return;
+    }
+    if (event.data?.source === MESSAGE_SOURCE && event.data.action === 'assistantState') {
+      const key = event.data.provider;
+      const record = PROVIDERS[key]?.privateTitle && frames.get(key);
+      if (!record || event.source !== record.frame.contentWindow || event.origin !== PROVIDERS[key].origin) return;
+      record.private = event.data.private === true;
+      if (frameKey() === key) renderProvider();
       return;
     }
     const record = frames.get('gemini');
@@ -761,7 +799,7 @@
     if (!message || !['toggleOverlay', 'refreshOverlay'].includes(message.type)) return false;
     if (!settings) {
       ready.then(() => {
-        if (message.type === 'toggleOverlay') toggle(message.provider === 'gemini' ? 'gemini' : 'chatgpt');
+        if (message.type === 'toggleOverlay') toggle(providerKey(message.provider));
         else refresh();
         sendResponse({ ok: true, open: isOpen() });
       }).catch(() => sendResponse({ ok: false }));
@@ -769,7 +807,7 @@
     }
 
     if (message.type === 'toggleOverlay') {
-      toggle(message.provider === 'gemini' ? 'gemini' : 'chatgpt');
+      toggle(providerKey(message.provider));
       sendResponse({ ok: true, open: isOpen() });
       return false;
     }
