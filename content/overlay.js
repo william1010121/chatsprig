@@ -15,11 +15,14 @@
   const PROVIDERS = {
     chatgpt: { shortcut: 'Alt+K', title: 'ChatGPT · Temporary Chat', name: 'ChatGPT temporary chat', frameName: FRAME_NAME },
     gemini: { shortcut: 'Alt+G', title: 'Gemini · Temporary Chat', name: 'Gemini temporary chat', frameName: 'gemini_helper_overlay_frame',
-      origin: 'https://gemini.google.com', url: () => 'https://gemini.google.com/app' },
+      origin: 'https://gemini.google.com', url: () => 'https://gemini.google.com/app', opening: 'Opening Gemini temporary chat…',
+      timeout: 'Gemini did not become ready. Sign in at gemini.google.com in a regular tab, check third-party cookie restrictions, then retry.' },
     claude: { shortcut: 'Alt+C', title: 'Claude', privateTitle: 'Claude · Incognito Chat', name: 'Claude chat',
       frameName: 'chatsprig_claude_frame', origin: 'https://claude.ai', setting: 'claudeUrl' },
     grok: { shortcut: 'Alt+X', title: 'Grok', privateTitle: 'Grok · Private Chat', name: 'Grok chat',
-      frameName: 'chatsprig_grok_frame', origin: 'https://grok.com', setting: 'grokUrl' }
+      frameName: 'chatsprig_grok_frame', origin: 'https://grok.com', setting: 'grokUrl', opening: 'Opening Grok private chat…',
+      timeout: 'Grok did not become ready. Sign in at grok.com in a regular tab, check third-party cookie restrictions, then retry.',
+      privateFailed: 'Could not start a Grok private chat. Sign in at grok.com in a regular tab, or turn off private mode for Claude and Grok in ChatSprig Settings, then retry.' }
   };
   const providerKey = (value) => Object.hasOwn(PROVIDERS, value) ? value : 'chatgpt';
   // Only the provider's own origin is unframed by rules.json; anything else falls back to the default.
@@ -381,7 +384,6 @@
   }
 
   function renderProvider() {
-    const gemini = provider === 'gemini';
     const { shortcut, title, privateTitle, name } = PROVIDERS[provider];
     const record = frames.get(frameKey());
     shadow.querySelector('.window').setAttribute('aria-label', activeBranch ? 'ChatGPT branch' : name);
@@ -390,9 +392,9 @@
     shadow.querySelector('[data-action="close"]').title = `Close: ${shortcut}`;
     shadow.querySelector('.footer span').textContent = activeBranch ? `${shortcut} close · Alt+N temporary chat` : `${shortcut} toggle · Alt+N new chat`;
     const status = shadow.querySelector('.frame-status');
-    status.hidden = (!gemini && !activeBranch) || record?.ready === true;
+    status.hidden = !record || record.ready === true;
     if (!status.hidden) {
-      status.querySelector('span').textContent = record?.error || (activeBranch ? 'Creating ChatGPT branch…' : 'Opening Gemini temporary chat…');
+      status.querySelector('span').textContent = record.error || (activeBranch ? 'Creating ChatGPT branch…' : PROVIDERS[provider].opening);
       status.querySelector('button').hidden = !!activeBranch || !record?.error;
     }
     for (const [key, value] of frames) {
@@ -526,13 +528,15 @@
     frame.allow = 'clipboard-read; clipboard-write; microphone';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
     frame.src = activeBranch ? activeBranch.url : providerUrl(key);
-    const record = { frame, branch: activeBranch, ready: key !== 'gemini' && !activeBranch, loaded: false, error: '', timer: null };
+    // Grok opens a regular chat first; keep it covered until its helper confirms private mode.
+    const awaitingPrivate = !activeBranch && key === 'grok' && settings.privateAssistantChats === true;
+    const record = { frame, branch: activeBranch, ready: key !== 'gemini' && !activeBranch && !awaitingPrivate, awaitingPrivate, loaded: false, error: '', timer: null };
     frames.set(key, record);
     iframe = frame;
-    if (key === 'gemini') {
+    if (key === 'gemini' || awaitingPrivate) {
       record.timer = window.setTimeout(() => {
         if (frames.get(key) !== record || record.ready) return;
-        record.error = 'Gemini did not become ready. Sign in at gemini.google.com in a regular tab, check third-party cookie restrictions, then retry.';
+        record.error = PROVIDERS[key].timeout;
         if (provider === key) renderProvider();
       }, 30000);
     }
@@ -677,7 +681,17 @@
       const record = PROVIDERS[key]?.privateTitle && frames.get(key);
       if (!record || event.source !== record.frame.contentWindow || event.origin !== PROVIDERS[key].origin) return;
       record.private = event.data.private === true;
-      if (frameKey() === key) renderProvider();
+      if (record.awaitingPrivate) {
+        // The first report follows the private-mode attempt; private: false means it failed.
+        record.awaitingPrivate = false;
+        window.clearTimeout(record.timer);
+        record.ready = record.private;
+        record.error = record.private ? '' : PROVIDERS[key].privateFailed;
+      }
+      if (frameKey() === key) {
+        renderProvider();
+        if (record.ready && isOpen() && pendingFocus?.frame === record.frame) requestFocusPrompt();
+      }
       return;
     }
     const record = frames.get('gemini');

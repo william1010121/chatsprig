@@ -67,7 +67,8 @@ function loadOverlay(settings) {
   const onMessage = event();
   const posts = [];
   const timers = [];
-  const window = { addEventListener() {}, clearTimeout() {}, setTimeout(fn) { timers.push(fn); } };
+  const windowListeners = {};
+  const window = { addEventListener(type, fn) { windowListeners[type] = fn; }, clearTimeout() {}, setTimeout(fn) { timers.push(fn); } };
   window.top = window.self = window;
   const context = vm.createContext({
     window, URL, CGPT_HELPER_DEFAULTS: DEFAULT_SETTINGS,
@@ -91,7 +92,7 @@ function loadOverlay(settings) {
     }
   });
   vm.runInContext(read('content/overlay.js'), context);
-  return { frames, onMessage, posts, timers };
+  return { frames, onMessage, posts, timers, windowListeners };
 }
 
 test('Claude and Grok overlays load their configured URL in a named frame', async () => {
@@ -126,6 +127,30 @@ test('Focus messages only reach a loaded frame, at that frame\'s own origin', as
   onMessage.listener({ type: 'toggleOverlay', provider: 'grok' }, {}, () => {});
   runTimers();
   assert.deepEqual(posts, [['chatsprig_claude_frame', 'https://claude.ai', 'cancelFocusPrompt']]);
+});
+
+test('Grok stays covered until its helper confirms private mode', async () => {
+  for (const confirmed of [true, false]) {
+    const { frames, onMessage, posts, timers, windowListeners } = loadOverlay({ ...DEFAULT_SETTINGS, focusPromptOnOpen: true });
+    await new Promise(setImmediate);
+    onMessage.listener({ type: 'toggleOverlay', provider: 'grok' }, {}, () => {});
+    frames[0].listeners.load();
+    timers.splice(0).forEach((fn) => fn());
+    // A regular Grok composer must not receive focus before private mode is confirmed.
+    assert.deepEqual(posts, []);
+    windowListeners.message({ source: frames[0].contentWindow, origin: 'https://grok.com',
+      data: { source: 'cgpt-helper', action: 'assistantState', provider: 'grok', private: confirmed } });
+    timers.splice(0).forEach((fn) => fn());
+    assert.equal(posts.length > 0, confirmed);
+    assert.ok(posts.every(([, origin, action]) => origin === 'https://grok.com' && action === 'focusPrompt'));
+  }
+  // With private mode off, Grok is usable as soon as it loads.
+  const { frames, onMessage, posts, timers } = loadOverlay({ ...DEFAULT_SETTINGS, privateAssistantChats: false, focusPromptOnOpen: true });
+  await new Promise(setImmediate);
+  onMessage.listener({ type: 'toggleOverlay', provider: 'grok' }, {}, () => {});
+  frames[0].listeners.load();
+  timers.splice(0).forEach((fn) => fn());
+  assert.equal(posts[0]?.[2], 'focusPrompt');
 });
 
 test('Claude and Grok URLs outside their own origin fall back to the defaults', async () => {
