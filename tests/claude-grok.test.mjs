@@ -147,6 +147,7 @@ test('Grok frame helper sends its private-chat shortcut, then reports confirmed 
   const posted = [];
   const keys = [];
   let incognito = false;
+  let watch;
   const input = { disabled: false, getClientRects: () => [1] };
   const classes = new Set();
   const window = { name: 'chatsprig_grok_frame', addEventListener() {}, parent: { postMessage: (data) => posted.push(data) } };
@@ -161,7 +162,7 @@ test('Grok frame helper sends its private-chat shortcut, then reports confirmed 
   };
   class KeyboardEvent { constructor(type, init) { Object.assign(this, { type }, init); } }
   const context = vm.createContext({
-    window, document, KeyboardEvent, URLSearchParams, location: { search: '' }, setTimeout, MutationObserver: class { observe() {} disconnect() {} },
+    window, document, KeyboardEvent, URLSearchParams, location: { search: '' }, setTimeout, setInterval: (fn) => { watch = fn; }, MutationObserver: class { observe() {} disconnect() {} },
     chrome: { storage: { onChanged: event() } },
     cgptLoadSettings: async () => ({ ...DEFAULT_SETTINGS })
   });
@@ -171,4 +172,12 @@ test('Grok frame helper sends its private-chat shortcut, then reports confirmed 
   assert.deepEqual([keys[0].type, keys[0].code, keys[0].ctrlKey, keys[0].shiftKey], ['keydown', 'KeyJ', true, true]);
   assert.deepEqual(JSON.parse(JSON.stringify(posted)), [{ source: 'cgpt-helper', action: 'assistantState', provider: 'grok', private: true }]);
   assert.ok(classes.has('chatsprig-assistant-compact'));
+  // Leaving private mode inside Grok updates the overlay title; an unchanged state stays quiet.
+  watch();
+  assert.equal(posted.length, 1);
+  incognito = false;
+  watch();
+  assert.deepEqual(JSON.parse(JSON.stringify(posted.at(-1))), { source: 'cgpt-helper', action: 'assistantState', provider: 'grok', private: false });
+  watch();
+  assert.equal(posted.length, 2);
 });

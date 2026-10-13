@@ -41,8 +41,18 @@
     ? new URLSearchParams(location.search).has('incognito')
     : !!document.querySelector('.bg-surface-incognito');
 
+  let reported = null;
   function report() {
-    window.parent.postMessage({ source: MESSAGE_SOURCE, action: 'assistantState', provider, private: isPrivate() }, '*');
+    reported = isPrivate();
+    window.parent.postMessage({ source: MESSAGE_SOURCE, action: 'assistantState', provider, private: reported }, '*');
+  }
+
+  // Leaving private mode in-app (SPA navigation or the header switch) must update the
+  // overlay title, so keep reporting whenever the state changes after the first report.
+  function watchPrivateState() {
+    setInterval(() => {
+      if (isPrivate() !== reported) report();
+    }, 1000);
   }
 
   // Grok has no private URL. Its own Ctrl+Shift+J shortcut sets (never toggles) private
@@ -130,5 +140,5 @@
     applySettings();
     if (provider === 'grok' && settings.privateAssistantChats === true) await enterGrokPrivate();
     report();
-  })().catch(report);
+  })().catch(report).finally(watchPrivateState);
 })();
