@@ -147,9 +147,9 @@ Tab routing uses tab IDs and messaging without requesting the `tabs` or `activeT
 
 ### Cross-site sign-in compatibility
 
-Cookie rewriting is **enabled by default**. It changes eligible ChatGPT cookies to `SameSite=None; Secure`, including session cookies, in the browser's cookie store. This weakens SameSite-based cross-site request forgery protection and can affect ChatGPT outside the overlay. The extension does not send those cookie values to its developer.
+Cookie rewriting is **enabled by default**. It changes eligible ChatGPT, Claude, and Grok cookies (chatgpt.com, chat.openai.com, claude.ai, grok.com) to `SameSite=None; Secure`, including session cookies, in the browser's cookie store. This weakens SameSite-based cross-site request forgery protection and can affect those sites outside the overlay. The extension does not send those cookie values to its developer.
 
-Turning this setting off stops future rewrites; **it does not restore cookies already changed**. ChatGPT may replace them during subsequent account activity. Chrome's third-party-cookie restrictions can still prevent sign-in inside other websites.
+Turning this setting off stops future rewrites; **it does not restore cookies already changed**. The services may replace them during subsequent account activity. Chrome's third-party-cookie restrictions can still prevent sign-in inside other websites.
 
 Read the [privacy policy](PRIVACY.md) for details.
 
