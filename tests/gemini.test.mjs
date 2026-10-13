@@ -112,8 +112,8 @@ test('Ask explicitly switches to its source provider and carries the provider to
   assert.equal(h.sent.at(-1).provider, 'chatgpt');
 });
 
-function geminiHarness({ availableAt = 0, enabled = false, missing = false, clickFails = false, signInMarker = false, chatPresent = true, inputMissing = false, hasStorageAccess, draft = '', generating = false, model = 'current', currentModel = 'Pro', availableModels = ['3.5 Flash-Lite', '3.8 Flash', '3.1 Pro'] } = {}) {
-  let clock = 0, clicks = 0, sends = 0, listener, mutated;
+function geminiHarness({ availableAt = 0, enabled = false, missing = false, clickFails = false, dropClicks = 0, applyDelay = 0, signInMarker = false, chatPresent = true, inputMissing = false, hasStorageAccess, draft = '', generating = false, model = 'current', currentModel = 'Pro', availableModels = ['3.5 Flash-Lite', '3.8 Flash', '3.1 Pro'] } = {}) {
+  let clock = 0, clicks = 0, sends = 0, listener, mutated, toggledOn = false, onAt = Infinity;
   const reports = [];
   let menuOpen = false, modelClicks = 0;
   const modelTrigger = { disabled: false, click() { menuOpen = true; },
@@ -130,7 +130,15 @@ function geminiHarness({ availableAt = 0, enabled = false, missing = false, clic
     set value(text) { this.childNodes = text.split('\n').map(line => ({ nodeName: 'P', childNodes: [line ? { nodeType: 3, nodeValue: line } : { nodeName: 'BR' }] })); }
   }; input.value = draft;
   const sendButton = { disabled: false, getAttribute: () => null, getClientRects: () => [{}], click() { sends++; } };
-  const tempButton = { disabled: false, getAttribute: () => null, click() { clicks++; if (!clickFails) enabled = true; } };
+  // Like Gemini: an accepted click marks the toggle temp-chat-on at once and applies the mode after applyDelay;
+  // a click while on exits temporary mode. Dropped clicks change nothing.
+  const tempButton = { disabled: false, getAttribute: () => null, closest: (selector) => selector === '.temp-chat-on' && toggledOn ? {} : null,
+    click() {
+      clicks++;
+      if (clickFails || clicks <= dropClicks) return;
+      toggledOn = !toggledOn;
+      if (toggledOn) onAt = clock + applyDelay; else { onAt = Infinity; enabled = false; }
+    } };
   const window = { self: {}, top: {}, name: 'gemini_helper_overlay_frame', addEventListener() {},
     parent: { postMessage: (data) => reports.push(data) }, getSelection: () => ({ removeAllRanges() {}, addRange() {} }) };
   const context = vm.createContext({ window, Date: { now: () => clock }, Event: class {}, HTMLTextAreaElement: class {},
@@ -149,7 +157,7 @@ function geminiHarness({ availableAt = 0, enabled = false, missing = false, clic
         if (selector === '[data-test-id="bard-mode-menu-button"]') return modelTrigger;
         if (selector === 'a[href*="accounts.google.com/SignOutOptions"]') return signInMarker ? {} : null;
         if (selector === 'chat-window') return chatPresent ? {} : null;
-        if (selector === 'chat-window.is-temporary-chat') return enabled ? {} : null;
+        if (selector === 'chat-window.is-temporary-chat') return enabled || clock >= onAt ? {} : null;
         if (selector.startsWith('.ql-editor')) return inputMissing ? null : input;
         if (selector.includes('temp-chat-button-container') || selector.includes('Temporary chat')) return !missing && clock >= availableAt ? tempButton : null;
         if (selector.includes('Stop response')) return generating ? {} : null;
@@ -160,7 +168,7 @@ function geminiHarness({ availableAt = 0, enabled = false, missing = false, clic
   });
   vm.runInContext(read('content/gemini-frame-helper.js'), context);
   return { reports, input, currentModel: () => currentModel, modelClicks: () => modelClicks, clicks: () => clicks, sends: () => sends,
-    leave() { enabled = false; mutated(); },
+    leave() { enabled = false; toggledOn = false; onAt = Infinity; mutated(); },
     dispatch: (message, sender = { id: 'extension' }) => new Promise(resolve => {
       const async = listener({ provider: 'gemini', ...message }, sender, resolve);
       if (!async) resolve(undefined);
@@ -174,6 +182,13 @@ test('Gemini waits for the temporary entry, activates exactly once, and recogniz
     assert.equal(h.clicks(), enabled ? 0 : 1); assert.equal(h.reports.at(-1).ready, true);
     assert.equal((await h.dispatch({ type: 'sidebarProbe' })).ready, true);
   }
+});
+
+test('a dropped temporary-chat click is retried, but a slowly applied one is never toggled off', async () => {
+  const dropped = geminiHarness({ dropClicks: 1 }); await tick();
+  assert.equal(dropped.clicks(), 2); assert.equal(dropped.reports.at(-1).ready, true);
+  const slow = geminiHarness({ applyDelay: 8000 }); await tick();
+  assert.equal(slow.clicks(), 1); assert.equal(slow.reports.at(-1).ready, true);
 });
 
 test('missing or failing temporary entry fails closed; leaving temporary mode revokes readiness', async () => {

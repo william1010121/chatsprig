@@ -141,8 +141,11 @@
         return;
       }
       const button = findTemporaryButton();
-      // A click before Gemini hydrates is dropped, so retry until temporary mode appears.
-      if (button && Date.now() - clickedAt > 2000 && !button.disabled && !document.querySelector('chat-window.is-temporary-chat')) {
+      // Gemini marks an accepted click with temp-chat-on within ~100 ms, but can take several
+      // seconds to apply is-temporary-chat; clicking again then would exit temporary mode.
+      // Retry only a click that was dropped (no temp-chat-on), e.g. before Gemini hydrates.
+      const accepted = !!button?.closest?.('.temp-chat-on');
+      if (button && !accepted && Date.now() - clickedAt > 2000 && !button.disabled && !document.querySelector('chat-window.is-temporary-chat')) {
         clickedAt = Date.now();
         button.click();
       }
