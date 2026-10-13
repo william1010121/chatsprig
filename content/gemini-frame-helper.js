@@ -12,6 +12,35 @@
     (node.classList ? node.classList.contains('is-temporary-chat') : !!document.querySelector('chat-window.is-temporary-chat'));
   const temporaryReady = () => ready && isTemporaryWindow(chatWindow);
   const findPromptInput = () => document.querySelector('.ql-editor[contenteditable="true"][role="textbox"]');
+  const findTemporaryButton = () => document.querySelector('[data-test-id="temp-chat-button-container"] button') ||
+    document.querySelector('button[aria-label="Temporary chat"], button[aria-label="臨時對話"], button[aria-label="临时对话"]');
+  async function timeoutDiagnostics() {
+    // Capture only UI presence, never account details, cookies, or conversation text.
+    const button = findTemporaryButton();
+    const diagnostics = {
+      signInMarker: !!document.querySelector('a[href*="accounts.google.com/SignOutOptions"]'),
+      temporaryButton: !!button,
+      temporaryButtonDisabled: button ? !!button.disabled || button.getAttribute('aria-disabled') === 'true' : null,
+      chatWindow: !!document.querySelector('chat-window'),
+      temporaryMode: !!document.querySelector('chat-window.is-temporary-chat'),
+      promptInput: !!findPromptInput()
+    };
+    let timer;
+    let storageAccess = 'unsupported';
+    if (typeof document.hasStorageAccess === 'function') {
+      try {
+        storageAccess = await Promise.race([
+          document.hasStorageAccess(),
+          new Promise(resolve => { timer = setTimeout(() => resolve('timeout'), 1000); })
+        ]);
+      } catch (error) {
+        storageAccess = `error:${error?.name || 'Error'}`;
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
+    }
+    return JSON.stringify({ ...diagnostics, storageAccess }, null, 2);
+  }
   const focusElement = (el) => el.focus({ preventScroll: true });
   function moveCaretToEnd(el) {
     const range = document.createRange();
@@ -93,7 +122,7 @@
     settings = await cgptLoadSettings();
     applySettings();
     const deadline = Date.now() + 25000;
-    let clicked = false;
+    let clickedAt = 0;
     while (Date.now() < deadline) {
       if (document.querySelector('chat-window.is-temporary-chat') && findPromptInput()) {
         if (!await selectDefaultModel(deadline)) {
@@ -111,15 +140,19 @@
         tryFocusPrompt();
         return;
       }
-      const button = document.querySelector('[data-test-id="temp-chat-button-container"] button') ||
-        document.querySelector('button[aria-label="Temporary chat"], button[aria-label="臨時對話"], button[aria-label="临时对话"]');
-      if (button && !clicked && !button.disabled && !document.querySelector('chat-window.is-temporary-chat')) {
-        clicked = true;
+      const button = findTemporaryButton();
+      // Gemini marks an accepted click with temp-chat-on within ~100 ms, but can take several
+      // seconds to apply is-temporary-chat; clicking again then would exit temporary mode.
+      // Retry only a click that was dropped (no temp-chat-on), e.g. before Gemini hydrates.
+      const accepted = !!button?.closest?.('.temp-chat-on');
+      if (button && !accepted && Date.now() - clickedAt > 2000 && !button.disabled && !document.querySelector('chat-window.is-temporary-chat')) {
+        clickedAt = Date.now();
         button.click();
       }
       await sleep(150);
     }
-    report('Could not enable Gemini temporary chat. Sign in at gemini.google.com in a regular tab, check third-party cookie restrictions, then retry.');
+    const diagnostics = await timeoutDiagnostics();
+    report(`Could not enable Gemini temporary chat. Sign in at gemini.google.com in a regular tab, check third-party cookie restrictions, then retry. Diagnostics: ${diagnostics}`);
   }
 
   let activeFill = null;

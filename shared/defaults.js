@@ -8,6 +8,9 @@
   // and the options page; background.js imports shared/defaults.mjs instead.
   const DEFAULT_SETTINGS = {
     targetUrl: 'https://chatgpt.com/?temporary-chat=true',
+    claudeUrl: 'https://claude.ai/new',
+    grokUrl: 'https://grok.com/',
+    privateAssistantChats: true,
     geminiExplainPrompt: 'explain this to me',
     geminiModel: 'current', // 'current' | 'flash-lite' | 'flash' | 'pro'
     altKWhenOpen: 'hide', // 'hide' | 'focus'

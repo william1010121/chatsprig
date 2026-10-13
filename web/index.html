@@ -245,15 +245,15 @@
 
     <section class="sec g-ref" id="privacy">
       <div class="hd"><h3>Privacy &amp; permissions</h3></div>
-      <p class="desc"><b>No developer-operated analytics, advertising or conversation backend.</b> Messages go straight to OpenAI or Google. ChatSprig never reads or summarizes the page around you — chats only receive what you type, paste or explicitly select.</p>
+      <p class="desc"><b>No developer-operated analytics, advertising or conversation backend.</b> Messages go straight to the provider you pick: OpenAI, Google, Anthropic or xAI. ChatSprig never reads or summarizes the page around you — chats only receive what you type, paste or explicitly select.</p>
       <table>
         <tr><th>Access</th><th>Why</th></tr>
         <tr><td>Web-page content scripts</td><td>Launcher, shortcuts and the overlay. On ChatGPT: prompt focus, embedded sidebar hiding, LaTeX copy.</td></tr>
         <tr><td>Storage</td><td>Synced preferences; local skills and BTW branch metadata.</td></tr>
-        <tr><td>ChatGPT cookies</td><td>Cross-site sign-in inside the overlay, when cookie rewriting is enabled.</td></tr>
-        <tr><td>Declarative network rules</td><td>Remove frame-blocking headers from ChatGPT and Gemini subframes only.</td></tr>
+        <tr><td>ChatGPT, Claude and Grok cookies</td><td>Cross-site sign-in inside the overlay, when cookie rewriting is enabled.</td></tr>
+        <tr><td>Declarative network rules</td><td>Remove frame-blocking headers from ChatGPT, Gemini, Claude and Grok subframes only.</td></tr>
       </table>
-      <div class="callout"><b>Cross-site sign-in compatibility</b> is on by default: eligible ChatGPT cookies are rewritten to <code>SameSite=None; Secure</code> so the overlay stays signed in. This relaxes SameSite-based CSRF protection. Turning it off stops future rewrites but doesn't restore cookies already changed. Google cookies are never rewritten.</div>
+      <div class="callout"><b>Cross-site sign-in compatibility</b> is on by default: eligible ChatGPT, Claude and Grok cookies (chatgpt.com, chat.openai.com, claude.ai, grok.com) are rewritten to <code>SameSite=None; Secure</code> so the overlay stays signed in. This relaxes SameSite-based CSRF protection. Turning it off stops future rewrites but doesn't restore cookies already changed. Google cookies are never rewritten.</div>
     </section>
 
     <section class="sec g-ref" id="limits">
@@ -278,7 +278,7 @@
   </main>
 </div>
 
-<footer>ChatSprig is an independent project, not affiliated with OpenAI or Google. ChatGPT and Gemini are trademarks of their respective owners.</footer>
+<footer>ChatSprig is an independent project, not affiliated with OpenAI, Google, Anthropic or xAI. ChatGPT, Gemini, Claude and Grok are trademarks of their respective owners.</footer>
 <div class="jump"><button id="up" title="Back to top">↑</button><button id="down" title="Jump to bottom">↓</button></div>
 
 <script src="demos/engine.js"></script>

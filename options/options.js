@@ -60,6 +60,20 @@
       }
     }
 
+    const origin = { claudeUrl: 'https://claude.ai', grokUrl: 'https://grok.com' }[key];
+    if (origin) {
+      value = String(value).trim();
+      let valid = false;
+      try { valid = new URL(value).origin === origin; } catch {}
+      if (!valid) {
+        value = DEFAULT_SETTINGS[key];
+        writeField(el, value);
+        showStatus(`Use an HTTPS URL on ${origin.slice(8)}. Default restored.`);
+        await chrome.storage.sync.set({ [key]: value });
+        return;
+      }
+    }
+
     await chrome.storage.sync.set({ [key]: value });
     showStatus('Saved');
   }

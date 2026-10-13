@@ -28,7 +28,7 @@
 
     <section>
       <h2>Keyboard shortcuts</h2>
-      <p class="hint">Press <kbd>Alt+K</kbd> for ChatGPT, <kbd>Alt+G</kbd> for Gemini, or <kbd>Alt+N</kbd> to start a new temporary chat. On macOS, use the Option key instead of Alt.</p>
+      <p class="hint">Press <kbd>Alt+K</kbd> for ChatGPT, <kbd>Alt+G</kbd> for Gemini, <kbd>Alt+C</kbd> for Claude, <kbd>Alt+X</kbd> for Grok, or <kbd>Alt+N</kbd> to start a new temporary chat. On macOS, use the Option key instead of Alt.</p>
       <button type="button" id="open-shortcuts">Change shortcuts</button>
     </section>
 
@@ -50,7 +50,7 @@
         <input type="number" min="420" max="4000" step="10" data-key="windowHeight">
       </label>
       <label class="row">
-        <span>Hide the sidebar inside either embedded chat</span>
+        <span>Hide the sidebar inside embedded chats</span>
         <input type="checkbox" data-key="hideChatgptSidebar">
       </label>
       <label class="row">
@@ -71,16 +71,29 @@
         <span>ChatGPT URL</span>
         <input type="url" data-key="targetUrl" spellcheck="false">
       </label>
+      <label class="row">
+        <span>Claude URL</span>
+        <input type="url" data-key="claudeUrl" spellcheck="false">
+      </label>
+      <label class="row">
+        <span>Grok URL</span>
+        <input type="url" data-key="grokUrl" spellcheck="false">
+      </label>
+      <label class="row">
+        <span>Start Claude and Grok in incognito / private mode</span>
+        <input type="checkbox" data-key="privateAssistantChats">
+      </label>
+      <p class="hint">Claude opens <code>/new?incognito</code>. Grok has no private URL, so ChatSprig turns on its private mode after the page loads; the window title shows “Private Chat” only once Grok confirms it. Sign in at claude.ai or grok.com in a regular tab first.</p>
     </section>
 
     <section>
       <h2>Sign-in settings</h2>
       <p class="hint">
-        ChatGPT sign-in cookies are not sent to frames embedded on other websites by default. This option changes chatgpt.com cookies to
+        ChatGPT, Claude and Grok sign-in cookies may not be sent to frames embedded on other websites. This option changes chatgpt.com, claude.ai and grok.com cookies to
         <code>SameSite=None</code>, which helps keep the overlay signed in on other websites. This weakens protection against cross-site request forgery (CSRF). Disabling it may leave the overlay signed out on other websites. Browser cookie restrictions may still prevent sign-in.
       </p>
       <label class="row">
-        <span>Keep ChatGPT signed in across websites (rewrite cookies)</span>
+        <span>Keep ChatGPT, Claude and Grok signed in across websites (rewrite cookies)</span>
         <input type="checkbox" data-key="rewriteCookies">
       </label>
       <div class="row">

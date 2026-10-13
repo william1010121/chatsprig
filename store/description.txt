@@ -1,17 +1,17 @@
 Ask here. Stay here.
 
-ChatSprig opens temporary ChatGPT and Gemini conversations inside your current web page. Ask a quick question while reading, studying, or working, then return without opening another window.
+ChatSprig opens temporary ChatGPT and Gemini conversations, plus Claude incognito and Grok private chats, inside your current web page. Ask a quick question while reading, studying, or working, then return without opening another window.
 
 WHAT YOU CAN DO
-• Open a centered, resizable ChatGPT or Gemini overlay on supported websites.
-• Open or switch to ChatGPT with Alt+K / Option+K and Gemini with Alt+G / Option+G.
+• Open a centered, resizable ChatGPT, Gemini, Claude, or Grok overlay on supported websites.
+• Open or switch to ChatGPT with Alt+K / Option+K, Gemini with Alt+G / Option+G, Claude with Alt+C / Option+C, and Grok with Alt+X / Option+X.
 • Start a fresh temporary chat in the current service with Alt+N / Option+N.
 • Select message text on ChatGPT or Gemini and send it to that service’s sidebar.
 • Choose whether Ask in sidebar sends immediately or leaves a draft for editing.
 • On ChatGPT, send /btw followed by a question to create a native branch in the floating window; reopen it from the branch count above the prompt.
 • Select ChatGPT message text and choose Ask in new branch to ask about it in a new native branch.
 • See ChatGPT branch chats nested under their source conversation in the history sidebar, and remove all branches below a chat with Clean after confirming.
-• Switch between open ChatGPT, Gemini, and BTW chats from a dock beside the floating window without reloading them; hover an item and click × to close it.
+• Switch between open ChatGPT, Gemini, Claude, Grok, and BTW chats from a dock beside the floating window without reloading them; hover an item and click × to close it.
 • Use Compact view on ChatGPT for more comfortable long-form reading, with live sliders for line, paragraph, and list spacing and side margins, plus an option to keep paragraph breaks.
 • Optionally prepend saved instructions in verified Chat mode and repeat them at a chosen interval.
 • Save text templates as skills, then type // in a ChatGPT or Gemini prompt to insert one as an editable draft.
@@ -24,13 +24,13 @@ YOU CHOOSE THE CONTEXT
 ChatSprig does not automatically read or summarize the surrounding webpage. Temporary chats receive text you type, paste, or explicitly select with Ask in sidebar. Sending /btw or choosing Ask in new branch explicitly creates a ChatGPT branch containing the current conversation context. Selecting text alone never sends it.
 
 ACCOUNT AND COMPATIBILITY
-ChatSprig embeds the official ChatGPT and Gemini websites. Sign in to each service in a normal tab first if needed. The providers’ account, plan, usage, and temporary-chat retention rules apply. Chrome internal pages, the Chrome Web Store, some PDF viewers, and other restricted pages cannot display the overlay. Browser restrictions or service changes may affect loading and sign-in.
+ChatSprig embeds the official ChatGPT, Gemini, Claude, and Grok websites. Sign in to each service in a normal tab first if needed. The providers’ account, plan, usage, and temporary, incognito, or private chat retention rules apply. Chrome internal pages, the Chrome Web Store, some PDF viewers, and other restricted pages cannot display the overlay. Browser restrictions or service changes may affect loading and sign-in.
 
 PRIVACY AND COOKIE COMPATIBILITY
-There is no developer-operated analytics or conversation backend. Settings use Chrome Sync; custom skills, BTW branch titles/URLs, and branch-to-source conversation ID links stay in this browser. To nest native branches, ChatSprig compares message identifiers from ChatGPT's own conversation endpoint in your browser; message content is not stored. Messages are handled directly by OpenAI or Google. BTW branches use ChatGPT's normal retention unless the source is explicitly in temporary mode.
+There is no developer-operated analytics or conversation backend. Settings use Chrome Sync; custom skills, BTW branch titles/URLs, and branch-to-source conversation ID links stay in this browser. To nest native branches, ChatSprig compares message identifiers from ChatGPT's own conversation endpoint in your browser; message content is not stored. Messages are handled directly by the selected provider: OpenAI, Google, Anthropic, or xAI. BTW branches use ChatGPT's normal retention unless the source is explicitly in temporary mode.
 
-Cross-site sign-in compatibility rewrites eligible ChatGPT cookies, including session cookies, to SameSite=None; Secure when enabled. This relaxes SameSite-based protection and can affect other ChatGPT tabs. Disabling it stops future rewrites but does not restore cookies already changed. Google cookies are not rewritten. ChatSprig removes frame-blocking response headers from service subframes to allow embedding. Browser cookie restrictions can still prevent sign-in.
+Cross-site sign-in compatibility rewrites eligible ChatGPT, Claude, and Grok cookies, including session cookies, to SameSite=None; Secure when enabled. This relaxes SameSite-based protection and can affect other ChatGPT, Claude, and Grok tabs. Disabling it stops future rewrites but does not restore cookies already changed. Google cookies are not rewritten. ChatSprig removes frame-blocking response headers from service subframes to allow embedding. Browser cookie restrictions can still prevent sign-in.
 
 Source and support: https://github.com/william1010121/chatsprig
 
-Independent project. Not affiliated with or endorsed by OpenAI or Google. ChatGPT is an OpenAI product.
+Independent project. Not affiliated with or endorsed by OpenAI, Google, Anthropic, or xAI. ChatGPT is an OpenAI product, Gemini a Google product, Claude an Anthropic product, and Grok an xAI product.
