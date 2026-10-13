@@ -404,6 +404,9 @@
       // Keep Gemini rendered behind the status cover during initialization.
       // Hiding its frame can stall the temporary-mode transition in Arc.
       value.frame.style.visibility = key.startsWith('btw:') && !value.ready ? 'hidden' : '';
+      // The cover only blocks the pointer; inert also keeps Tab and assistive tech out of an
+      // unconfirmed (regular, non-temporary) chat without changing how the frame renders.
+      value.frame.inert = !value.ready;
     }
     askStatus(record?.askStatus || '⌖ focus input');
     renderRail();

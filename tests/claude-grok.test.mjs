@@ -136,13 +136,15 @@ test('Claude and Grok stay covered until their helper confirms private mode', as
     onMessage.listener({ type: 'toggleOverlay', provider }, {}, () => {});
     frames[0].listeners.load();
     timers.splice(0).forEach((fn) => fn());
-    // A regular composer must not receive focus before private mode is confirmed.
+    // A regular composer must not receive focus, by message or keyboard, before private mode is confirmed.
     assert.deepEqual(posts, []);
+    assert.equal(frames[0].inert, true);
     const origin = provider === 'grok' ? 'https://grok.com' : 'https://claude.ai';
     windowListeners.message({ source: frames[0].contentWindow, origin,
       data: { source: 'cgpt-helper', action: 'assistantState', provider, private: confirmed } });
     timers.splice(0).forEach((fn) => fn());
     assert.equal(posts.length > 0, confirmed);
+    assert.equal(frames[0].inert, !confirmed);
     assert.ok(posts.every(([, target, action]) => target === origin && action === 'focusPrompt'));
   }
   // With private mode off, both are usable as soon as they load.

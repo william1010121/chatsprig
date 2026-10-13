@@ -88,6 +88,7 @@ test('Gemini stays rendered behind the loading/error cover until temporary readi
   assert.equal(h.status.hidden, false);
   assert.equal(h.created[0].hidden, false);
   assert.equal(h.created[0].style.visibility, '');
+  assert.equal(h.created[0].inert, true);
   const error = 'Could not enable Gemini temporary chat. Diagnostics: { "signInMarker": false, "storageAccess": false }';
   h.ready(h.created[0], { data: { source: 'cgpt-helper', action: 'geminiState', ready: false, error } });
   assert.equal(h.status.hidden, false);
@@ -97,6 +98,7 @@ test('Gemini stays rendered behind the loading/error cover until temporary readi
   h.ready(h.created[0]);
   assert.equal(h.status.hidden, true);
   assert.equal(h.created[0].style.visibility, '');
+  assert.equal(h.created[0].inert, false);
 });
 
 test('Ask explicitly switches to its source provider and carries the provider to background routing', async () => {
