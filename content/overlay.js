@@ -18,7 +18,9 @@
       origin: 'https://gemini.google.com', url: () => 'https://gemini.google.com/app', opening: 'Opening Gemini temporary chat…',
       timeout: 'Gemini did not become ready. Sign in at gemini.google.com in a regular tab, check third-party cookie restrictions, then retry.' },
     claude: { shortcut: 'Alt+C', title: 'Claude', privateTitle: 'Claude · Incognito Chat', name: 'Claude chat',
-      frameName: 'chatsprig_claude_frame', origin: 'https://claude.ai', setting: 'claudeUrl' },
+      frameName: 'chatsprig_claude_frame', origin: 'https://claude.ai', setting: 'claudeUrl', opening: 'Opening Claude incognito chat…',
+      timeout: 'Claude did not become ready. Sign in at claude.ai in a regular tab, check third-party cookie restrictions, then retry.',
+      privateFailed: 'Could not start a Claude incognito chat. Incognito needs the claude.ai/new URL and a signed-in session. Sign in at claude.ai in a regular tab, or turn off private mode for Claude and Grok in ChatSprig Settings, then retry.' },
     grok: { shortcut: 'Alt+X', title: 'Grok', privateTitle: 'Grok · Private Chat', name: 'Grok chat',
       frameName: 'chatsprig_grok_frame', origin: 'https://grok.com', setting: 'grokUrl', opening: 'Opening Grok private chat…',
       timeout: 'Grok did not become ready. Sign in at grok.com in a regular tab, check third-party cookie restrictions, then retry.',
@@ -528,8 +530,9 @@
     frame.allow = 'clipboard-read; clipboard-write; microphone';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
     frame.src = activeBranch ? activeBranch.url : providerUrl(key);
-    // Grok opens a regular chat first; keep it covered until its helper confirms private mode.
-    const awaitingPrivate = !activeBranch && key === 'grok' && settings.privateAssistantChats === true;
+    // Grok opens a regular chat first and Claude may drop its incognito parameter (a non-/new URL,
+    // a redirect); keep either covered until its helper confirms private mode.
+    const awaitingPrivate = !activeBranch && !!PROVIDERS[key].privateTitle && settings.privateAssistantChats === true;
     const record = { frame, branch: activeBranch, ready: key !== 'gemini' && !activeBranch && !awaitingPrivate, awaitingPrivate, loaded: false, error: '', timer: null };
     frames.set(key, record);
     iframe = frame;

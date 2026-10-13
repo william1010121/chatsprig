@@ -110,7 +110,7 @@ test('Claude and Grok overlays load their configured URL in a named frame', asyn
 });
 
 test('Focus messages only reach a loaded frame, at that frame\'s own origin', async () => {
-  const { frames, onMessage, posts, timers } = loadOverlay({ ...DEFAULT_SETTINGS, focusPromptOnOpen: true });
+  const { frames, onMessage, posts, timers } = loadOverlay({ ...DEFAULT_SETTINGS, privateAssistantChats: false, focusPromptOnOpen: true });
   await new Promise(setImmediate);
   const runTimers = () => timers.splice(0).forEach((fn) => fn());
   // A just-created frame is still about:blank with the host page's origin: nothing may be posted to it.
@@ -129,28 +129,31 @@ test('Focus messages only reach a loaded frame, at that frame\'s own origin', as
   assert.deepEqual(posts, [['chatsprig_claude_frame', 'https://claude.ai', 'cancelFocusPrompt']]);
 });
 
-test('Grok stays covered until its helper confirms private mode', async () => {
-  for (const confirmed of [true, false]) {
+test('Claude and Grok stay covered until their helper confirms private mode', async () => {
+  for (const [provider, confirmed] of [['grok', true], ['grok', false], ['claude', true], ['claude', false]]) {
     const { frames, onMessage, posts, timers, windowListeners } = loadOverlay({ ...DEFAULT_SETTINGS, focusPromptOnOpen: true });
     await new Promise(setImmediate);
-    onMessage.listener({ type: 'toggleOverlay', provider: 'grok' }, {}, () => {});
+    onMessage.listener({ type: 'toggleOverlay', provider }, {}, () => {});
     frames[0].listeners.load();
     timers.splice(0).forEach((fn) => fn());
-    // A regular Grok composer must not receive focus before private mode is confirmed.
+    // A regular composer must not receive focus before private mode is confirmed.
     assert.deepEqual(posts, []);
-    windowListeners.message({ source: frames[0].contentWindow, origin: 'https://grok.com',
-      data: { source: 'cgpt-helper', action: 'assistantState', provider: 'grok', private: confirmed } });
+    const origin = provider === 'grok' ? 'https://grok.com' : 'https://claude.ai';
+    windowListeners.message({ source: frames[0].contentWindow, origin,
+      data: { source: 'cgpt-helper', action: 'assistantState', provider, private: confirmed } });
     timers.splice(0).forEach((fn) => fn());
     assert.equal(posts.length > 0, confirmed);
-    assert.ok(posts.every(([, origin, action]) => origin === 'https://grok.com' && action === 'focusPrompt'));
+    assert.ok(posts.every(([, target, action]) => target === origin && action === 'focusPrompt'));
   }
-  // With private mode off, Grok is usable as soon as it loads.
-  const { frames, onMessage, posts, timers } = loadOverlay({ ...DEFAULT_SETTINGS, privateAssistantChats: false, focusPromptOnOpen: true });
-  await new Promise(setImmediate);
-  onMessage.listener({ type: 'toggleOverlay', provider: 'grok' }, {}, () => {});
-  frames[0].listeners.load();
-  timers.splice(0).forEach((fn) => fn());
-  assert.equal(posts[0]?.[2], 'focusPrompt');
+  // With private mode off, both are usable as soon as they load.
+  for (const provider of ['grok', 'claude']) {
+    const { frames, onMessage, posts, timers } = loadOverlay({ ...DEFAULT_SETTINGS, privateAssistantChats: false, focusPromptOnOpen: true });
+    await new Promise(setImmediate);
+    onMessage.listener({ type: 'toggleOverlay', provider }, {}, () => {});
+    frames[0].listeners.load();
+    timers.splice(0).forEach((fn) => fn());
+    assert.equal(posts[0]?.[2], 'focusPrompt');
+  }
 });
 
 test('Claude and Grok URLs outside their own origin fall back to the defaults', async () => {

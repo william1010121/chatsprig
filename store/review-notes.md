@@ -8,7 +8,7 @@
 
 ## Single purpose
 
-Provide an in-page workspace for temporary ChatGPT and Gemini conversations, with keyboard access, explicit selection-to-sidebar actions, focused layout, and LaTeX copying for mathematical responses.
+Provide an in-page workspace for temporary ChatGPT and Gemini conversations and Claude incognito / Grok private chats, with keyboard access, explicit selection-to-sidebar actions, focused layout, and LaTeX copying for mathematical responses.
 
 ## Changes in 2.6.3
 
@@ -52,7 +52,7 @@ Provide an in-page workspace for temporary ChatGPT and Gemini conversations, wit
 - storage: Store and sync user-selected overlay, launcher, shortcut behavior, LaTeX-copy, and cookie compatibility settings using chrome.storage.sync; store user-created text templates, BTW branch metadata, and branch-to-source conversation ID links in chrome.storage.local.
 - cookies: Read and rewrite eligible chatgpt.com, chat.openai.com, claude.ai, and grok.com cookies to SameSite=None; Secure when cookie compatibility is enabled. This allows existing ChatGPT, Claude, and Grok sign-in cookies to work in a cross-site iframe where browser policy permits. Cookie values stay in the browser and are not sent to the developer. Enabled by default; Settings can stop future rewrites but cannot undo earlier changes.
 - declarativeNetRequestWithHostAccess: Apply the packaged static rules.json rules to remove frame-blocking response headers from ChatGPT subframes and X-Frame-Options from Gemini subframes. Rules require granted host access to the listed service domains.
-- Host/content-script access: Content scripts on supported web pages provide the floating launcher, keyboard fallback, and overlay host. ChatGPT and Gemini scripts offer skill completion when the user types `//` in the prompt. ChatGPT-specific scripts focus the prompt, hide its embedded sidebar, provide Compact view and optional saved instructions, and convert selected math when copying. Gemini-specific scripts verify temporary mode and the requested model. Access to the ChatGPT and Gemini hosts supports these user-facing features and frame compatibility. The surrounding page is not automatically sent to either service.
+- Host/content-script access: Content scripts on supported web pages provide the floating launcher, keyboard fallback, and overlay host. ChatGPT and Gemini scripts offer skill completion when the user types `//` in the prompt. ChatGPT-specific scripts focus the prompt, hide its embedded sidebar, provide Compact view and optional saved instructions, and convert selected math when copying. Gemini-specific scripts verify temporary mode and the requested model. Claude and Grok scripts hide the embedded sidebar, focus the prompt, start Grok's private mode, and confirm private mode before the chat is usable. Access to the ChatGPT, Gemini, Claude, and Grok hosts supports these user-facing features and frame compatibility. The surrounding page is not automatically sent to either service.
 
 ## Remote content disclosure
 
