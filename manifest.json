@@ -86,6 +86,18 @@
     },
     {
       "matches": [
+        "https://gemini.google.com/*",
+        "https://claude.ai/*",
+        "https://grok.com/*"
+      ],
+      "js": [
+        "content/frame-privacy-gate.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
         "<all_urls>"
       ],
       "js": [

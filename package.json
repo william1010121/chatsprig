@@ -1,0 +1,13 @@
+{
+  "name": "chatsprig",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "node scripts/test_browser.mjs",
+    "test:mutations": "node scripts/test_mutations.mjs",
+    "test:browser:mutations": "node scripts/test_browser_mutations.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

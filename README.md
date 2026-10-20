@@ -169,11 +169,18 @@ Plain JavaScript. Manifest V3. No runtime framework or build step.
 # Run regression checks (Node.js)
 node --test tests/*.test.mjs
 
-# Run browser regressions (requires ego-browser)
+# Run offline browser regressions (Node 22+, Python optional)
+npm ci
+npx playwright install chromium
+npm run test:browser
+
+# Run an individual scenario (the Python entry point is retained)
 python3 scripts/test_browser.py btw
 python3 scripts/test_browser.py btw-completion
 python3 scripts/test_browser.py btw-invalidation
 python3 scripts/test_browser.py compact-margins
+# Or: node scripts/test_browser.mjs provider-lifecycle
+# Optional existing Chromium: CHROMIUM_PATH=/path/to/chromium npm run test:browser
 
 # Regenerate icon sizes from the approved artwork (macOS)
 python3 scripts/make_icons.py
@@ -210,3 +217,7 @@ Report bugs or suggest improvements in [GitHub Issues](https://github.com/willia
   <p>If ChatSprig helps you, <a href="https://github.com/william1010121/chatsprig/stargazers">give it a star ★</a>.</p>
   <p><sub>Independent project. Not affiliated with or endorsed by OpenAI or Google. ChatGPT is an OpenAI product.</sub></p>
 </div>
+
+Browser tests use synthetic local HTML and stubbed extension APIs. HTTP(S) requests are blocked and fail the suite; no real AI account or messages are used. They cover branch recovery, draft preservation, private-mode input/send gates and new-chat reloads. These fixtures do not verify live provider selectors or remote services. CI runs all Node and browser suites and retains failure screenshots.
+
+Privacy regression tests execute the production frame gate and provider helpers in a Chromium isolated world against synthetic DOMs and settings, including optout, stale/spoofed readiness, and mode exit. They do not load an installed extension or verify live provider contracts. Run `npm run test:mutations` and `npm run test:browser:mutations` to confirm isolated deliberate privacy/draft faults are detected.

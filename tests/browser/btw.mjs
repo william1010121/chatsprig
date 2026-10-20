@@ -18,14 +18,6 @@ await page.goto(`file://${path}`);
 await page.waitForFunction(()=>window.qaReady);
 console.log(await page.snapshot());
 
-// Build a second fixture from the downloaded, real ChatGPT HTML (when available).
-try {
-  let saved=await fs.readFile(`${root}/draft/performance/KK.html`,'utf8');
-  saved=saved.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'').replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi,'');
-  const bootstrap=`document.querySelectorAll('[id^="cgpt-helper"]').forEach(el=>el.remove());window.qaSources=${JSON.stringify(sources).replace(/<\//g,'<\\/')};`;
-  saved=saved.replace('</body>',`<script>${bootstrap}<\/script><script>${shim}<\/script></body>`);
-  await fs.writeFile(`${root}/draft/btw-2.5.1/saved-chatgpt.html`,saved);
-} catch(error) { console.log({savedHtmlFixture:error.message}); }
 const assert = (condition, message) => { if(!condition) throw new Error(message); };
 // Reset only this fixture's test-owned data, then verify persistence by reloading later.
 await page.evaluate(()=>localStorage.removeItem('qaBtwStorage'));
@@ -101,7 +93,7 @@ await page.evaluate(()=>{
 await page.fill('#prompt-textarea','/btw New ChatGPT layout test');await page.press('#prompt-textarea','Enter');
 await page.waitForFunction(()=>qa.sends.length===1 && document.querySelector('#prompt-textarea').textContent==='');
 assert(await page.evaluate(()=>qa.routes.at(-1).url.endsWith('/22222222-2222-4222-8222-222222222222')),'New ChatGPT region/search-message IDs were not recognized');
-const results={passed:true,checks:['connected hidden composer transition','hidden old main ignored','Enter','send button','multiline','source isolation','separate frames','draft retention','empty command','Shift+Enter','conversation scoping','reload without rebranch/resend','native failure preserves source draft','new ChatGPT region/search-message IDs'],nativeService:'simulated',savedHtml:`${root}/draft/btw-2.5.1/saved-chatgpt.html`};
+const results={passed:true,checks:['connected hidden composer transition','hidden old main ignored','Enter','send button','multiline','source isolation','separate frames','draft retention','empty command','Shift+Enter','conversation scoping','reload without rebranch/resend','native failure preserves source draft','new ChatGPT region/search-message IDs'],nativeService:'simulated'};
 await fs.writeFile(`${root}/draft/btw-2.5.1/browser-results.json`,JSON.stringify(results,null,2));
 console.log(results);
 console.log(await page.snapshot());

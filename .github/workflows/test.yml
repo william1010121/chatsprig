@@ -1,0 +1,32 @@
+name: Tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - run: npm run test:mutations
+      - run: npm run test:browser
+      - run: npm run test:browser:mutations
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-fixtures-and-screenshots
+          path: |
+            draft/failure-*.png
+            draft/btw-2.5.1/browser-results.json
+            draft/window-rail/*.png
+            draft/branch-tree/*.png
+          retention-days: 7
