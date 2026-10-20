@@ -53,6 +53,10 @@
   // overlay title, so keep reporting whenever the state changes after the first report.
   function watchPrivateState() {
     setInterval(() => {
+      // A trusted event may have relocked the document during a brief mode loss
+      // that ended between polls. Resync interactivity even if the title is unchanged.
+      window.cgptSetFramePrivacyReady?.(settings.privateAssistantChats === false || isPrivate(),
+        () => settings.privateAssistantChats === false || isPrivate());
       if (isPrivate() !== reported) report();
     }, 1000);
   }
