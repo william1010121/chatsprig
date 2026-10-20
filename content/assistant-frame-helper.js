@@ -44,6 +44,8 @@
   let reported = null;
   function report() {
     reported = isPrivate();
+    window.cgptSetFramePrivacyReady?.(settings.privateAssistantChats === false || reported,
+      () => settings.privateAssistantChats === false || isPrivate());
     window.parent.postMessage({ source: MESSAGE_SOURCE, action: 'assistantState', provider, private: reported }, '*');
   }
 

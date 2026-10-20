@@ -71,6 +71,7 @@
     tryFocusPrompt();
   }
   function report(error = '') {
+    window.cgptSetFramePrivacyReady?.(temporaryReady(), temporaryReady);
     window.parent.postMessage({ source: MESSAGE_SOURCE, action: 'geminiState', ready: temporaryReady(), error }, '*');
   }
   function applySettings() {
