@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ChatSprig \u2014 Temporary Chat for ChatGPT & Gemini",
+  "name": "ChatSprig \u2014 Open ChatGPT, Claude, Gemini or Grok on Any Page",
   "version": "2.6.3",
   "description": "Open ChatGPT, Gemini, Claude and Grok chats in your current page, with keyboard shortcuts and selection-to-sidebar.",
   "icons": {
